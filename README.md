@@ -24,7 +24,7 @@ ai_chatbot/
 ├── templates/
 │ └── index.html # Main UI – single-page chat interface
 ├── notebooks/ # functions to build practice
-└── README.md # You are here :)
+└── README.md # 
 ```
 
 ---
@@ -61,8 +61,61 @@ api_key = "your-openai-api-key"
 5. **Run the app**
 python app.py
 
+
+
 ```bash
 python app.py
 Then open http://localhost:5000 in your browser.
 ```
 
+---
+
+## Backend Logic (app.py + gpt_handler.py)
+
+### app.py
+
+- Serves the main frontend (index.html)
+- Defines /chat route:
+  - Accepts POST requests with user messages
+  - Calls GPT via gpt_handler.py
+  - Returns chatbot's reply as JSON
+
+### gpt_handler.py
+
+- Manages the OpenAI client
+- Maintains conversation_history list with roles (user, assistant)
+- Sends messages to GPT and handles responses
+- Includes example logic to format specialized queries (e.g. football-related queries return structured output)
+
+## Frontend (templates/index.html)
+
+- Sidebar for conversation switching and creation
+- Main panel for chat history
+- JS functions:
+  - sendMessage(): Sends messages to backend
+  - appendMessage(): Displays messages in DOM
+  - newConversation(), renderConversationList(): Handle conversation storage and switching
+  - renderConversationList() – shows saved chats from localStorage
+- Conversations are stored via localStorage
+- Markdown support via marked.js
+- Designed to be responsive and minimal
+
+## notebooks/ Folder – Experiments & Learning Playground
+
+This folder contains Jupyter-style Python scripts to test GPT logic before integration into the main app.
+
+### chatbot_intro.ipynb
+
+- Simple one-off prompt responses using getLLMResponse() and getLLMResponseNew() functions.
+- Optionally stores previous conversation history for coherent replies.
+
+### chatbot_conversation_history.ipynb
+
+- Console-based infinite chat loop
+- Maintains full conversation history with GPT (like a terminal chatbot)
+- Illustrates role-based interactions using OpenAI's Python SDK
+
+### chatbot_document_uploading.ipynb
+
+- Use of Retrieval-Augmented Generation (RAG) using llama_index.
+- Uploads PDFs/documents, creates vector embeddings, and allows question answering from them
