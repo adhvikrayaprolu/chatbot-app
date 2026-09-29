@@ -1,121 +1,73 @@
-# Chatbot App
+# Conversation notebook
 
-This is a lightweight web-based chatbot interface built with **Flask** on the backend and **vanilla HTML/CSS/JS** on the frontend. The bot integrates with OpenAI's GPT models to respond to user prompts with contextual memory and markdown-formatted replies. The UI supports multiple chat sessions with persistent conversation history stored in `localStorage`.
+A small Flask chatbot that keeps separate, persistent conversations for each browser and makes provider failures recoverable.
 
----
+## Demo
 
-## Features
+The default offline demo echoes a message without an API key or paid requests. Start the app, create two conversations, send a message in each, and reload: each history remains separate. Use a second browser profile to verify ownership isolation. No screenshot is claimed until a browser run is verified.
 
-- GPT-backed chatbot responses via OpenAI API
-- Persistent multi-conversation support (locally stored in browser)
-- Clean and responsive UI using only HTML, CSS, and JavaScript
-- Chat history scroll, title renaming, markdown rendering, and message roles
-- Easily extendable to support document input, history sync, PDF ingestion, etc.
+## What it does
 
----
+Create, rename, switch and delete chats; retain their messages in SQLite; send the last ten turns to the configured provider. Keyboard controls and responsive native HTML keep the interface simple. Text is displayed as plain text to avoid executing user/model HTML.
 
-## Project Structure
+## Architecture / tech stack
 
-```text
-ai_chatbot/
-│
-├── app.py # Flask server to route frontend/backend logic
-├── gpt_handler.py # Handles all communication with OpenAI and stores conversation history
-├── templates/
-│ └── index.html # Main UI – single-page chat interface
-├── notebooks/ # functions to build practice
-└── README.md # 
+Browser → Flask JSON routes → SQLite Store + stateless OpenAI provider. Flask signed HttpOnly SameSite cookies identify a random browser owner; messages stay server-side. `storage.py` includes owner in every query and commits complete turns atomically. Optimistic version checks reject concurrent replies rather than mixing history. No global conversation list.
+
+## Quick start
+
+Python 3.11+ and Make:
+
+```sh
+cp .env.example .env
+make setup
+make dev
 ```
 
----
+Open http://127.0.0.1:5000. `make dev` is the preferred local run command. Port 5000 conflicts on some macOS configurations; stop the conflicting local service or use `.venv/bin/flask --app 'app:create_app()' run --port 5001`.
 
-## Setup Instructions
+Optional Docker path:
 
-1. **Clone the repo**
-
-```bash
-git clone https://github.com/adhvikrayaprolu/chatbot-app.git
-cd chatbot-app
+```sh
+cp .env.example .env
+docker compose up --build
 ```
 
-2. **Create and activate a virtual environment**
+Compose binds localhost and retains SQLite in `chat-data`. `docker compose down` keeps history; `down -v` deletes it. Docker build/runtime verification may require a running Docker daemon.
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+## Configuration
+
+`CHAT_PROVIDER=demo` is explicit offline mode. Set `CHAT_PROVIDER=openai` and `OPENAI_API_KEY` in `.env` for real replies; keep the original `gpt-4.1-mini` model or set `OPENAI_MODEL`. Credentials never belong in source. Missing keys/unknown providers fail at startup. Provider requests time out after 20 seconds with retries disabled, and errors return meaningful HTTP statuses without leaking provider responses.
+
+SQLite defaults to `instance/chat.sqlite3`; override `CHAT_DATABASE`. A local session signing key is generated once in ignored `instance/session.key`. Keep it stable with the database. HTTPS deployments require a strong `SECRET_KEY` and `COOKIE_SECURE=true`.
+
+## Testing
+
+```sh
+make test
 ```
 
-3. **Install dependencies**
+Tests use an injected fake provider and temporary database; no network or key required. CI runs tests/Python startup compilation and a Docker build with read-only repository permissions.
 
-```bash
-pip install openai flask
-```
+## Project structure / API
 
-4. **Add your OpenAI API key**
-Update gpt_handler.py with your own OpenAI key:
+- `app.py`: factory, validation, CSRF and conversation routes.
+- `storage.py`: SQLite ownership/persistence and concurrent-turn checks.
+- `gpt_handler.py`: stateless provider/error translation.
+- `static/`, `templates/`: responsive plain-text UI.
+- `tests/`: isolation, persistence, failures and input boundaries.
+- `notebooks/`: historical experiments, not runtime features.
 
-```bash
-api_key = "your-openai-api-key"
-```
+GET `/api/session` returns a CSRF token. GET/POST `/api/conversations`, GET/PATCH/DELETE `/api/conversations/<id>` manage owned chats. POST `/chat` takes `conversation_id` and `message`; mutations require `X-CSRF-Token`. Limits: 2,000 characters per prompt, 50 conversations per browser, 100 turns per conversation, last ten turns supplied as context.
 
-5. **Run the app**
-python app.py
+## Design decisions / known limitations
 
+Cookie ownership suits a local demo, not account authentication. Clearing cookies loses access to old chats; no account sync/import is implemented. Old localStorage-only histories are not imported. SQLite data is plaintext on local disk. Anyone sharing the same browser profile shares access. Public hosting needs real authentication, abuse/rate controls, retention policy and HTTPS; do not expose this localhost demo as a public service. Markdown rendering, streaming and document upload are deliberately absent from the application.
 
+## Credential exposure follow-up
 
-```bash
-python app.py
-Then open http://localhost:5000 in your browser.
-```
+The original `notebooks/chatbot_intro.ipynb` contained a credential-shaped OpenAI key. Its validity is unknown; current source/output was redacted. A human should revoke that key if real and review repository history/account usage. This change does not remove it from old Git commits and does not rotate credentials.
 
----
+## Future work
 
-## Backend Logic (app.py + gpt_handler.py)
-
-### app.py
-
-- Serves the main frontend (index.html)
-- Defines /chat route:
-  - Accepts POST requests with user messages
-  - Calls GPT via gpt_handler.py
-  - Returns chatbot's reply as JSON
-
-### gpt_handler.py
-
-- Manages the OpenAI client
-- Maintains conversation_history list with roles (user, assistant)
-- Sends messages to GPT and handles responses
-- Includes example logic to format specialized queries (e.g. football-related queries return structured output)
-
-## Frontend (templates/index.html)
-
-- Sidebar for conversation switching and creation
-- Main panel for chat history
-- JS functions:
-  - sendMessage(): Sends messages to backend
-  - appendMessage(): Displays messages in DOM
-  - newConversation(), renderConversationList(): Handle conversation storage and switching
-  - renderConversationList() – shows saved chats from localStorage
-- Conversations are stored via localStorage
-- Markdown support via marked.js
-- Designed to be responsive and minimal
-
-## notebooks/ Folder – Experiments & Learning Playground
-
-This folder contains Jupyter-style Python scripts to test GPT logic before integration into the main app.
-
-### chatbot_intro.ipynb
-
-- Simple one-off prompt responses using getLLMResponse() and getLLMResponseNew() functions.
-- Optionally stores previous conversation history for coherent replies.
-
-### chatbot_conversation_history.ipynb
-
-- Console-based infinite chat loop
-- Maintains full conversation history with GPT (like a terminal chatbot)
-- Illustrates role-based interactions using OpenAI's Python SDK
-
-### chatbot_document_uploading.ipynb
-
-- Use of Retrieval-Augmented Generation (RAG) using llama_index.
-- Uploads PDFs/documents, creates vector embeddings, and allows question answering from them
+Only documented baseline gaps: browser interaction automation and human-verified demo screenshots, then authenticated hosting if this becomes a deployed product.
