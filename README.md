@@ -119,3 +119,7 @@ This folder contains Jupyter-style Python scripts to test GPT logic before integ
 
 - Use of Retrieval-Augmented Generation (RAG) using llama_index.
 - Uploads PDFs/documents, creates vector embeddings, and allows question answering from them
+
+## Engineering workflow
+
+See [engineering setup, validation and known blockers](docs/engineering-control-plane.md) and [agent instructions](AGENTS.md). Canonical validation: `make check` after the documented dependency setup.
