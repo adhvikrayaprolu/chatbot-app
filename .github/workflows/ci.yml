@@ -20,17 +20,19 @@ jobs:
       - run: python -m compileall -q app.py gpt_handler.py storage.py
   docker:
     runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: chatbot-ci
     steps:
       - uses: actions/checkout@v6
-      - name: Validate Compose and build
+      - name: Validate Compose and start healthy service
         run: |
           cp .env.example .env
           docker compose config --quiet
-          docker build -t chatbot-ci .
+          docker compose up --build --wait --wait-timeout 90
       - name: Verify container isolation and restart persistence
         run: |
-          docker run -d --name chatbot-smoke -p 127.0.0.1:5000:5000 -e CHAT_PROVIDER=demo chatbot-ci
-          python scripts/runtime_smoke.py --restart-container chatbot-smoke
-      - name: Stop disposable test container
+          python scripts/runtime_smoke.py --restart-container "$(docker compose ps -q chatbot)"
+          docker compose up --wait --wait-timeout 90
+      - name: Stop disposable Compose project
         if: always()
-        run: if docker inspect chatbot-smoke >/dev/null 2>&1; then docker rm -f chatbot-smoke; fi
+        run: docker compose down --volumes

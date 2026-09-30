@@ -2,6 +2,7 @@
 import os
 import fcntl
 import secrets
+import sqlite3
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -52,6 +53,8 @@ def create_app(config=None, provider=None):
 
     @app.before_request
     def identify_owner():
+        if request.endpoint == 'health':
+            return
         if 'owner' not in session:
             session['owner'] = secrets.token_hex(32)
             session['csrf'] = secrets.token_hex(32)
@@ -105,6 +108,16 @@ def create_app(config=None, provider=None):
     @app.get('/')
     def home():
         return render_template('index.html')
+
+    @app.get('/healthz')
+    def health():
+        # Readiness checks the local schema, never the paid provider or user data.
+        try:
+            with store.connect() as db:
+                db.execute('SELECT id FROM conversations LIMIT 1').fetchone()
+        except sqlite3.Error:
+            return jsonify(status='unavailable'), 503
+        return jsonify(status='ok')
 
     @app.get('/api/session')
     def session_info():
