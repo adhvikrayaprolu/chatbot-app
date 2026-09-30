@@ -5,10 +5,10 @@ Maintain independent conversations with a language-model chatbot.
 app.py: Flask routes; gpt_handler.py: OpenAI boundary and currently process-global history; templates/index.html: vanilla UI and browser localStorage. No server persistence in published main.
 
 # Local Development
-Create .venv and install requirements.txt. make check PYTHON=/absolute/path/to/.venv/bin/python validates syntax/dependency imports only. Current app requires source-level provider configuration; do not insert credentials into source. Safe env/offline startup is a blocking issue.
+Follow the verified root README workflow. Root Makefiles coordinate Python/React environments where present; Spring defaults to persistent local H2; Android needs JDK17 and an explicit SDK path. Do not use source-level credentials or mutate live Firebase.
 
 # Validation
-Canonical command: `make check`. See docs/engineering-control-plane.md for prerequisites and known gaps. A build with zero tests is not behavioral validation. Do not skip a failing check or claim hosted CI passed before a run exists.
+Canonical setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
 
 # Frontend Rules
 Keep the native stack (JSP, vanilla HTML or Android Java/XML). Preserve keyboard/accessibility, loading/error/empty states; do not migrate to React.
@@ -23,7 +23,7 @@ Add meaningful regression tests for the selected workflow, including failure/aut
 Read open GitHub issues as the work source. Branch from current main as codex/<issue>-<scope>; link the real issue in a draft PR, record validation and verification limits. Use Closes #N only when all criteria are met; issue closes on human merge, not when the draft opens. Never merge or push directly to main.
 
 # Do Not
-Do not commit secrets, migrate frameworks, change unrelated features, deploy, rotate credentials or mutate live cloud data. Do not treat unmerged local sprint branches as main. Before implementing overlapping work inspect the existing local branch listed in docs/engineering-control-plane.md and avoid duplicate PRs.
+Do not commit secrets, migrate frameworks, change unrelated features, deploy, rotate credentials or mutate live cloud data. Inspect open PRs before selecting an issue; the quality integration PR publishes earlier product and control-plane work. Never redo work already present in an active PR.
 
 # Issue Selection Rules
 1. Read the Portfolio readiness tracking meta issue; stop if complete.

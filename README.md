@@ -1,73 +1,42 @@
-# Conversation notebook
+# Persistent Chatbot
+A Flask chatbot with private browser-owned conversations, durable history and an explicit offline demo.
 
-A small Flask chatbot that keeps separate, persistent conversations for each browser and makes provider failures recoverable.
+## Overview
+Create separate chats, switch between them and return to their history without mixing one conversation's context with another browser's data.
 
-## Demo
+## Project Context
+Originated in ClayHR internship work exploring HR-support chatbots. This public version focuses on conversation engineering; notebook/RAG experiments are not a shipped document-retrieval feature.
 
-The default offline demo echoes a message without an API key or paid requests. Start the app, create two conversations, send a message in each, and reload: each history remains separate. Use a second browser profile to verify ownership isolation. No screenshot is claimed until a browser run is verified.
+## Key Features
+- Create, rename, switch and delete persistent conversations.
+- SQLite ownership checks, bounded provider context and atomic successful turns.
+- Safe plain-text rendering, pending/retry states and structured errors.
+- Offline demo provider; optional OpenAI provider configured entirely through environment variables.
 
-## What it does
+## Architecture / Tech Stack
+Vanilla HTML/CSS/JavaScript → Flask app factory → owner-scoped SQLite store → injectable demo/OpenAI provider. Signed cookies identify a browser; CSRF protects writes. This is local browser ownership, not multi-device account authentication.
 
-Create, rename, switch and delete chats; retain their messages in SQLite; send the last ten turns to the configured provider. Keyboard controls and responsive native HTML keep the interface simple. Text is displayed as plain text to avoid executing user/model HTML.
-
-## Architecture / tech stack
-
-Browser → Flask JSON routes → SQLite Store + stateless OpenAI provider. Flask signed HttpOnly SameSite cookies identify a random browser owner; messages stay server-side. `storage.py` includes owner in every query and commits complete turns atomically. Optimistic version checks reject concurrent replies rather than mixing history. No global conversation list.
-
-## Quick start
-
-Python 3.11+ and Make:
-
+## Quick Start
+Python 3.13 and Make, from the repository root:
 ```sh
-cp .env.example .env
 make setup
 make dev
 ```
+Open http://127.0.0.1:5000. Setup installs locked dependencies and creates `.env` only if missing. No API key is needed in demo mode. History and the local session key live under ignored `instance/`. Keep that directory to preserve browser ownership across restarts.
 
-Open http://127.0.0.1:5000. `make dev` is the preferred local run command. Port 5000 conflicts on some macOS configurations; stop the conflicting local service or use `.venv/bin/flask --app 'app:create_app()' run --port 5001`.
-
-Optional Docker path:
-
-```sh
-cp .env.example .env
-docker compose up --build
-```
-
-Compose binds localhost and retains SQLite in `chat-data`. `docker compose down` keeps history; `down -v` deletes it. Docker build/runtime verification may require a running Docker daemon.
-
-## Configuration
-
-`CHAT_PROVIDER=demo` is explicit offline mode. Set `CHAT_PROVIDER=openai` and `OPENAI_API_KEY` in `.env` for real replies; keep the original `gpt-4.1-mini` model or set `OPENAI_MODEL`. Credentials never belong in source. Missing keys/unknown providers fail at startup. Provider requests time out after 20 seconds with retries disabled, and errors return meaningful HTTP statuses without leaking provider responses.
-
-SQLite defaults to `instance/chat.sqlite3`; override `CHAT_DATABASE`. A local session signing key is generated once in ignored `instance/session.key`. Keep it stable with the database. HTTPS deployments require a strong `SECRET_KEY` and `COOKIE_SECURE=true`.
-
-## Testing
-
+## Validation / Tests
 ```sh
 make test
 ```
+Tests cover cross-browser isolation, persistence, CSRF, malformed requests, conflict handling and provider failures without paid API calls. CI also builds the Docker image.
 
-Tests use an injected fake provider and temporary database; no network or key required. CI runs tests/Python startup compilation and a Docker build with read-only repository permissions.
+## Environment Variables
+`.env.example` documents `CHAT_PROVIDER=demo|openai`, `OPENAI_API_KEY`, `OPENAI_MODEL`, optional `SECRET_KEY` and `COOKIE_SECURE`. Never edit a key into Python or commit `.env`. Hosted HTTPS use requires secure cookies and a private stable secret.
 
-## Project structure / API
+## Project Structure
+`app.py`: API/factory; `storage.py`: persistence and ownership; `gpt_handler.py`: providers; `templates/` and `static/`: UI; `tests/`: API regressions.
 
-- `app.py`: factory, validation, CSRF and conversation routes.
-- `storage.py`: SQLite ownership/persistence and concurrent-turn checks.
-- `gpt_handler.py`: stateless provider/error translation.
-- `static/`, `templates/`: responsive plain-text UI.
-- `tests/`: isolation, persistence, failures and input boundaries.
-- `notebooks/`: historical experiments, not runtime features.
+## Current Status / Limitations
+OpenAI credential-backed behavior requires owner verification. Public hosting also needs account authentication and abuse controls. A historical notebook credential-shaped string requires owner review; deleting current source cannot revoke it. Docker is an optional validation path, not the preferred startup workflow; local registry/runtime results are recorded in the integration PR.
 
-GET `/api/session` returns a CSRF token. GET/POST `/api/conversations`, GET/PATCH/DELETE `/api/conversations/<id>` manage owned chats. POST `/chat` takes `conversation_id` and `message`; mutations require `X-CSRF-Token`. Limits: 2,000 characters per prompt, 50 conversations per browser, 100 turns per conversation, last ten turns supplied as context.
-
-## Design decisions / known limitations
-
-Cookie ownership suits a local demo, not account authentication. Clearing cookies loses access to old chats; no account sync/import is implemented. Old localStorage-only histories are not imported. SQLite data is plaintext on local disk. Anyone sharing the same browser profile shares access. Public hosting needs real authentication, abuse/rate controls, retention policy and HTTPS; do not expose this localhost demo as a public service. Markdown rendering, streaming and document upload are deliberately absent from the application.
-
-## Credential exposure follow-up
-
-The original `notebooks/chatbot_intro.ipynb` contained a credential-shaped OpenAI key. Its validity is unknown; current source/output was redacted. A human should revoke that key if real and review repository history/account usage. This change does not remove it from old Git commits and does not rotate credentials.
-
-## Future work
-
-Only documented baseline gaps: browser interaction automation and human-verified demo screenshots, then authenticated hosting if this becomes a deployed product.
+See [AGENTS.md](AGENTS.md) for issue-based development and the readiness tracker in GitHub Issues for remaining work.
