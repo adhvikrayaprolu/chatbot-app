@@ -1,40 +1,38 @@
-from openai import OpenAI
+"""Stateless provider boundary. Never stores browser conversation state."""
+from openai import OpenAI, APIError, APITimeoutError, RateLimitError
 
-api_key="..."
+SYSTEM_PROMPT = 'You are a helpful assistant. Answer clearly and accurately.'
 
-client = OpenAI(api_key=api_key)
 
-conversation_history = [
-    {
-        "role": "system", 
-        "content": ("You are a helpful assistant."
-                    "You respond clearly to user queries, and when appropriate, you format your responses using markdown. "
-                    "Always answer politely and informatively.")
-    }
-]
+class ProviderError(Exception):
+    def __init__(self, message, status=503):
+        super().__init__(message)
+        self.status = status
 
-def get_response(user_input):
-    global conversation_history
 
-    formatted_input = f"""You are given a user prompt delimited by triple backticks. 
-    Everytime the user asks about football give the user 3 examples of football players as a list in a json format with the following keys: name, age, nationality, total goals.
-    ```{user_input}```
-    """
+class DemoProvider:
+    def reply(self, messages):
+        return 'Offline demo reply: ' + messages[-1]['content']
 
-    conversation_history.append({"role": "user", "content": formatted_input})
-    # append the text from the pdf
 
-    try: 
-        response = client.chat.completions.create(
-            model = "gpt-4.1-mini",
-            messages = conversation_history,
-            temperature = 0.7
-        )
-    except Exception as e: 
-        print("error calling OpenAI API:", e)
-        return "There was an error processing your request."
+class OpenAIProvider:
+    def __init__(self, api_key, model):
+        if not api_key:
+            raise ValueError('Set OPENAI_API_KEY or select CHAT_PROVIDER=demo.')
+        self.client = OpenAI(api_key=api_key, timeout=20, max_retries=0)
+        self.model = model
 
-    assistant_reply = response.choices[0].message.content
-    conversation_history.append({"role": "assistant", "content": assistant_reply})
-
-    return assistant_reply
+    def reply(self, messages):
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model, messages=messages, max_completion_tokens=1000)
+            text = response.choices[0].message.content
+            if not text:
+                raise ProviderError('The provider returned an empty reply. Try again.', 502)
+            return text
+        except RateLimitError as error:
+            raise ProviderError('The provider is busy. Try again later.', 429) from error
+        except APITimeoutError as error:
+            raise ProviderError('The provider timed out. Try again.', 504) from error
+        except APIError as error:
+            raise ProviderError('The provider is unavailable. Try again later.', 502) from error

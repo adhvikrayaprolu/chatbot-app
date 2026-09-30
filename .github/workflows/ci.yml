@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+      - run: python -m compileall -q app.py gpt_handler.py storage.py
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate Compose and build
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker build -t chatbot-ci .
+      - name: Verify container isolation and restart persistence
+        run: |
+          docker run -d --name chatbot-smoke -p 127.0.0.1:5000:5000 -e CHAT_PROVIDER=demo chatbot-ci
+          python scripts/runtime_smoke.py --restart-container chatbot-smoke
+      - name: Stop disposable test container
+        if: always()
+        run: if docker inspect chatbot-smoke >/dev/null 2>&1; then docker rm -f chatbot-smoke; fi
