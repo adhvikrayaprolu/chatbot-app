@@ -22,4 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - run: docker build -t chatbot-ci .
+      - name: Validate Compose and build
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker build -t chatbot-ci .
+      - name: Verify container isolation and restart persistence
+        run: |
+          docker run -d --name chatbot-smoke -p 127.0.0.1:5000:5000 -e CHAT_PROVIDER=demo chatbot-ci
+          python scripts/runtime_smoke.py --restart-container chatbot-smoke
+      - name: Stop disposable test container
+        if: always()
+        run: if docker inspect chatbot-smoke >/dev/null 2>&1; then docker rm -f chatbot-smoke; fi

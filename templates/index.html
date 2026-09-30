@@ -9,4 +9,13 @@
 <main><header><h2 id="title">Choose a conversation</h2><div class="actions"><button id="rename" disabled>Rename</button><button id="delete" disabled>Delete</button></div></header>
 <p id="status" role="status" aria-live="polite"></p><section id="messages" aria-label="Conversation messages"></section>
 <form id="composer"><label for="message">Message</label><div class="compose"><textarea id="message" rows="2" maxlength="2000" placeholder="Ask a question" required></textarea><button id="send" disabled>Send</button></div><small>Enter to send · Shift+Enter for a new line. Replies are displayed as safe plain text.</small></form>
-</main></div></body></html>
+</main></div>
+<dialog id="renameDialog" aria-labelledby="renameHeading"><form id="renameForm">
+<h2 id="renameHeading">Rename conversation</h2><label for="conversationTitle">Conversation title</label>
+<input id="conversationTitle" maxlength="80" required><p id="renameError" role="alert"></p>
+<div class="actions"><button id="renameCancel" type="button">Cancel</button><button id="renameSave">Save title</button></div>
+</form></dialog>
+<dialog id="deleteDialog" aria-labelledby="deleteHeading"><h2 id="deleteHeading">Delete conversation?</h2>
+<p>This removes this conversation and its messages from this local notebook.</p><p id="deleteError" role="alert"></p>
+<div class="actions"><button id="deleteCancel">Cancel</button><button id="deleteConfirm">Delete conversation</button></div></dialog>
+</body></html>

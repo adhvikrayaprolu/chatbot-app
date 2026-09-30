@@ -13,6 +13,8 @@ function busy() {
   $('rename').disabled = pending || !current;
   $('delete').disabled = pending || !current;
   $('newChat').disabled = pending;
+  $('renameSave').disabled = pending;
+  $('deleteConfirm').disabled = pending;
 }
 function renderMessages(messages) {
   $('messages').replaceChildren();
@@ -42,13 +44,34 @@ async function refreshList() {
 $('newChat').addEventListener('click', async () => {
   try { const chat = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ title: 'New conversation' }) }); current = chat.id; await load(current); await refreshList(); status(''); $('message').focus(); } catch (error) { status(error.message); }
 });
-$('rename').addEventListener('click', async () => {
-  const title = prompt('Conversation title', $('title').textContent); if (!title?.trim()) return;
-  try { await api(`/api/conversations/${current}`, { method: 'PATCH', body: JSON.stringify({ title }) }); await load(current); await refreshList(); } catch (error) { status(error.message); }
+$('rename').addEventListener('click', () => {
+  $('conversationTitle').value = $('title').textContent;
+  $('renameError').textContent = ''; $('renameDialog').showModal();
 });
-$('delete').addEventListener('click', async () => {
-  if (!confirm('Delete this conversation and its messages?')) return;
-  try { await api(`/api/conversations/${current}`, { method: 'DELETE' }); current = null; const list = await refreshList(); if (list.length) { current = list[0].id; await load(current); await refreshList(); } else { $('title').textContent = 'Start a conversation'; $('messages').replaceChildren(); busy(); } } catch (error) { status(error.message); }
+$('renameCancel').addEventListener('click', () => $('renameDialog').close());
+$('renameForm').addEventListener('submit', async (event) => {
+  event.preventDefault(); if (pending || !current) return;
+  const title = $('conversationTitle').value.trim();
+  if (!title) { $('renameError').textContent = 'Enter a conversation title.'; return; }
+  const cid = current; pending = true; busy();
+  try {
+    await api(`/api/conversations/${cid}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+    await load(cid); await refreshList(); $('renameDialog').close(); status('Title saved.');
+  } catch (error) { $('renameError').textContent = error.message; }
+  finally { pending = false; busy(); }
+});
+$('delete').addEventListener('click', () => { $('deleteError').textContent = ''; $('deleteDialog').showModal(); });
+$('deleteCancel').addEventListener('click', () => $('deleteDialog').close());
+$('deleteConfirm').addEventListener('click', async () => {
+  if (pending || !current) return; pending = true; busy();
+  try {
+    await api(`/api/conversations/${current}`, { method: 'DELETE' }); current = null;
+    const list = await refreshList();
+    if (list.length) { current = list[0].id; await load(current); await refreshList(); }
+    else { $('title').textContent = 'Start a conversation'; $('messages').replaceChildren(); }
+    $('deleteDialog').close(); status('Conversation deleted.');
+  } catch (error) { $('deleteError').textContent = error.message; }
+  finally { pending = false; busy(); }
 });
 $('composer').addEventListener('submit', async (event) => {
   event.preventDefault(); const message = $('message').value.trim(); if (pending || !current || !message) return;
