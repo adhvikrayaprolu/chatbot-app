@@ -280,6 +280,13 @@ class Knowledge:
             raise Conflict('Wait for indexing to finish before deleting.')
         with self.store.connect() as db:
             db.execute('DELETE FROM comparisons WHERE owner=? AND document_id=?', (owner, did))
+            for row in db.execute('SELECT answer_metadata.conversation_id,answer_metadata.version,answer_metadata.data FROM answer_metadata JOIN conversations ON conversations.id=answer_metadata.conversation_id WHERE owner=?', (owner,)).fetchall():
+                saved = json.loads(row['data'])
+                if saved.get('document_id') == did:
+                    saved['evidence'] = []
+                    saved['citations'] = [{key:value for key,value in c.items() if key != 'text'} for c in saved.get('citations', [])]
+                    saved['source_removed'] = True
+                    db.execute('UPDATE answer_metadata SET data=? WHERE conversation_id=? AND version=?', (json.dumps(saved), row['conversation_id'], row['version']))
             db.execute('DELETE FROM documents WHERE owner=? AND id=?', (owner, did))
         shutil.rmtree(self.directory / did, ignore_errors=True)
 
@@ -296,6 +303,7 @@ class Knowledge:
     def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag', evidence: list | None = None) -> dict:
         if method not in METHODS:
             raise ValueError('Unsupported answering method')
+        self.ready(owner, did)
         start = time.perf_counter()
         acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'steps': []}
         if evidence is not None:
@@ -362,6 +370,10 @@ class Knowledge:
         with self.store.connect() as db:
             db.execute('INSERT INTO comparisons VALUES(?,?,?,?)', (result['id'], owner, did, json.dumps(result)))
         return result
+
+    def list_comparisons(self, owner: str) -> list[dict]:
+        with self.store.connect() as db:
+            return [{'id':r['id'], 'question':json.loads(r['data'])['question']} for r in db.execute('SELECT id,data FROM comparisons WHERE owner=? ORDER BY rowid DESC LIMIT 50', (owner,))]
 
     def comparison(self, owner: str, cid: str) -> dict:
         with self.store.connect() as db:

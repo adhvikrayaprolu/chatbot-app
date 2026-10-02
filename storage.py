@@ -86,6 +86,10 @@ class Store:
                 (cid, owner, version))
             if result.rowcount != 1:
                 raise Conflict('Conversation changed while replying; reload and try again.')
+            if metadata and metadata.get('document_id'):
+                source = db.execute('SELECT status FROM documents WHERE id=? AND owner=?', (metadata['document_id'], owner)).fetchone()
+                if not source or source['status'] != 'ready':
+                    raise Conflict('Source changed while replying; select a ready document and retry.')
             db.executemany('INSERT INTO messages(conversation_id,role,content) VALUES(?,?,?)',
                            [(cid, 'user', message), (cid, 'assistant', reply)])
             if metadata:
