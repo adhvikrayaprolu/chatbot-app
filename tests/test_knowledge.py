@@ -103,4 +103,3 @@ def test_failed_ingestion_is_recoverable(tmp_path):
     assert k.document('alice', did)['status'] == 'failed'
     assert not k.document('alice', did)['metadata'].get('fingerprint')
     k.worker.shutdown(wait=True)
-
