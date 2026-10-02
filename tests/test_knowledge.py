@@ -30,7 +30,7 @@ class Models:
     def embed(self, texts):
         return [[1.0, 0.5] for _ in texts]
 
-    def generate(self, messages, schema=None):
+    def generate(self, messages, schema=None, citation_ids=None):
         return {'text': 'A barrier synchronizes a block [p1-c0].', 'input_tokens': 10, 'output_tokens': 5}
 
 
@@ -108,7 +108,7 @@ def test_failed_ingestion_is_recoverable(tmp_path):
 def test_agent_retry_is_bounded_and_abstains(corpus):
     k, did = corpus
     calls = []
-    def generate(messages, schema=None):
+    def generate(messages, schema=None, citation_ids=None):
         calls.append(schema)
         text = '{"query":"barrier"}' if 'query' in schema['properties'] else '{"sufficient":false}'
         return {'text': text, 'input_tokens': 1, 'output_tokens': 1}
@@ -121,7 +121,7 @@ def test_agent_retry_is_bounded_and_abstains(corpus):
 
 def test_okf_navigation_and_invalid_path(corpus):
     k, did = corpus
-    def generate(messages, schema=None):
+    def generate(messages, schema=None, citation_ids=None):
         if schema:
             ids = ['group-0'] if 'Source indexes:' in messages[-1]['content'] else ['p1-c0']
             return {'text': __import__('json').dumps({'ids': ids}), 'input_tokens': 1, 'output_tokens': 1}
@@ -162,7 +162,7 @@ def test_partial_comparison_failure_is_visible(corpus):
 def test_evidence_instructions_are_untrusted_and_budgeted(corpus):
     k, did = corpus
     captured = []
-    def generate(messages, schema=None):
+    def generate(messages, schema=None, citation_ids=None):
         captured.extend(messages)
         return {'text': 'Insufficient evidence in this document.', 'input_tokens': 2, 'output_tokens': 3}
     k.models.generate = generate
@@ -223,3 +223,32 @@ def test_observability_keeps_only_numeric_operational_metadata():
                       'output_tokens': 'private text', 'model_calls': True}) == {
                           'seconds': .25, 'input_tokens': 13}
     assert mask(data='private passage') == '[content omitted]'
+
+
+def test_local_adapter_requires_source_ids_or_explicit_abstention(monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    from knowledge import LocalModels
+
+    class Adapter:
+        payload = {'answer': 'A supported answer.', 'citations': ['p1-c0']}
+
+        def bind(self, **kwargs):
+            assert kwargs['format']['anyOf'][0]['properties']['citations']['items']['enum'] == ['p1-c0']
+            return self
+
+        def invoke(self, messages):
+            return SimpleNamespace(content=json.dumps(self.payload), usage_metadata={}, response_metadata={})
+
+    adapter = Adapter()
+    monkeypatch.setattr('langchain_ollama.ChatOllama', lambda **kwargs: adapter)
+    models = LocalModels()
+    messages = [{'role': 'user', 'content': 'An original fixture question.'}]
+    assert models.generate(messages, None, ['p1-c0'])['text'] == 'A supported answer. [p1-c0]'
+    adapter.payload = {'answer': 'Insufficient evidence in this document.', 'citations': []}
+    assert models.generate(messages, None, ['p1-c0'])['text'].startswith('Insufficient evidence')
+    for payload in ({'answer': 'Claim', 'citations': []}, {'answer': 'Claim', 'citations': ['p999-c0']}):
+        adapter.payload = payload
+        with pytest.raises(ProviderError):
+            models.generate(messages, None, ['p1-c0'])

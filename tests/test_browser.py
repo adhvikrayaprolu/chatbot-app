@@ -19,7 +19,7 @@ from tests.test_knowledge import Models, Tokens  # noqa: E402
 
 
 class BrowserModels(Models):
-    def generate(self, messages, schema=None):
+    def generate(self, messages, schema=None, citation_ids=None):
         if schema:
             properties = schema['properties']
             if 'query' in properties:

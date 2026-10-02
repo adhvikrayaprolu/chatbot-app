@@ -32,6 +32,24 @@ supplied evidence. If evidence is insufficient, respond "Insufficient evidence i
 Do not invent citations or facts. Distinguish code suggestions from source-backed facts.'''
 
 
+def answer_schema(ids: list[str]) -> dict:
+    properties: dict[str, Any] = {
+        'answer': {'type': 'string', 'minLength': 1, 'description': 'Concise final answer, never hidden reasoning.'},
+        'citations': {'type': 'array', 'items': {'type': 'string', 'enum': ids} if ids else {'type': 'string'},
+                      'description': 'IDs of supplied passages supporting the answer. Empty only when abstaining.'},
+    }
+    base = {'type': 'object', 'properties': properties, 'required': ['answer', 'citations'], 'additionalProperties': False}
+    if not ids:
+        properties['citations']['maxItems'] = 0
+        return base
+    supported = {**base, 'properties': {**properties, 'citations': {**properties['citations'], 'minItems': 1, 'maxItems': len(ids)}}}
+    abstained = {**base, 'properties': {
+        'answer': {'const': 'Insufficient evidence in this document.'},
+        'citations': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 0},
+    }}
+    return {'anyOf': [supported, abstained]}
+
+
 class LocalModels:
     def __init__(self, host: str = 'http://127.0.0.1:11434'):
         # The corpus must never be sent to an arbitrary remote model endpoint.
@@ -63,12 +81,14 @@ class LocalModels:
         return self.request('/api/embed', {'model': self.embedding, 'input': texts, 'truncate': False})['embeddings']
 
     @traced('generate', 'generation')
-    def generate(self, messages: list[dict], schema: dict | None = None) -> dict:
+    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None) -> dict:
         # LangChain provides the local model adapter; graph control remains explicit.
         from langchain_ollama import ChatOllama
         model: Any = ChatOllama(model=self.model, base_url=self.host, temperature=0, num_ctx=8192,
                            num_predict=1024, reasoning=False, client_kwargs={'timeout': 180})
         response_schema = schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
+        if citation_ids is not None:
+            response_schema = answer_schema(citation_ids)
         model = model.bind(format=response_schema)
         try:
             from langsmith import tracing_context
@@ -88,6 +108,16 @@ class LocalModels:
                 text = parsed['answer']
                 if not isinstance(text, str) or not text.strip():
                     raise ProviderError('Model returned an empty final answer.', 502)
+                if citation_ids is not None:
+                    citations = parsed.get('citations')
+                    if (not isinstance(citations, list) or any(not isinstance(cid, str) or cid not in citation_ids for cid in citations)
+                            or (citation_ids and not citations and not text.startswith('Insufficient evidence'))
+                            or (text.startswith('Insufficient evidence') and citations)):
+                        raise ProviderError('Model returned invalid structured citations.', 502)
+                    existing = set(re.findall(r'\[(p\d+-c\d+)\]', text))
+                    missing = [cid for cid in dict.fromkeys(citations) if cid not in existing]
+                    if missing:
+                        text = text.rstrip() + ' ' + ' '.join(f'[{cid}]' for cid in missing)
             return {'text': text, 'input_tokens': usage.get('input_tokens', 0),
                     'output_tokens': usage.get('output_tokens', 0),
                     'load_seconds': (response.response_metadata or {}).get('load_duration', 0) / 1e9}
@@ -333,7 +363,7 @@ class Knowledge:
                 history_tokens += size
             messages.extend(recent)
             messages.append({'role': 'user', 'content': f'Question: {question}\n<evidence>\n{context}\n</evidence>'})
-            result = self.models.generate(messages)
+            result = self.models.generate(messages, None, [h['id'] for h in selected])
         allowed = {h['id']: h for h in selected}
         ids = re.findall(r'\[(p\d+-c\d+)\]', result['text'])
         invalid = [cid for cid in ids if cid not in allowed]
