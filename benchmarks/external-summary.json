@@ -1,0 +1,129 @@
+{
+  "qasper": {
+    "status": "incomplete",
+    "completed": 0,
+    "expected": 150,
+    "failures": 0,
+    "methods": {
+      "rag": {
+        "runs": 0,
+        "failures": 0,
+        "correctness": {
+          "mean": null,
+          "n": 0
+        },
+        "citation_support": {
+          "mean": null,
+          "n": 0
+        },
+        "paragraph_recall": {
+          "mean": null,
+          "n": 0
+        },
+        "abstention_accuracy": {
+          "mean": null,
+          "n": 0
+        },
+        "input_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "output_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "model_calls": {
+          "mean": null,
+          "n": 0
+        },
+        "latency": {
+          "p50": null,
+          "p90": null,
+          "p95": null
+        }
+      },
+      "agentic": {
+        "runs": 0,
+        "failures": 0,
+        "correctness": {
+          "mean": null,
+          "n": 0
+        },
+        "citation_support": {
+          "mean": null,
+          "n": 0
+        },
+        "paragraph_recall": {
+          "mean": null,
+          "n": 0
+        },
+        "abstention_accuracy": {
+          "mean": null,
+          "n": 0
+        },
+        "input_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "output_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "model_calls": {
+          "mean": null,
+          "n": 0
+        },
+        "latency": {
+          "p50": null,
+          "p90": null,
+          "p95": null
+        }
+      },
+      "okf": {
+        "runs": 0,
+        "failures": 0,
+        "correctness": {
+          "mean": null,
+          "n": 0
+        },
+        "citation_support": {
+          "mean": null,
+          "n": 0
+        },
+        "paragraph_recall": {
+          "mean": null,
+          "n": 0
+        },
+        "abstention_accuracy": {
+          "mean": null,
+          "n": 0
+        },
+        "input_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "output_tokens": {
+          "mean": null,
+          "n": 0
+        },
+        "model_calls": {
+          "mean": null,
+          "n": 0
+        },
+        "latency": {
+          "p50": null,
+          "p90": null,
+          "p95": null
+        }
+      }
+    }
+  },
+  "ragbench": {
+    "status": "incomplete",
+    "completed": 0,
+    "expected": 50,
+    "failures": 0,
+    "faithfulness_n": 0,
+    "context_relevance_n": 0
+  }
+}

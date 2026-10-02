@@ -1,0 +1,25 @@
+{
+  "model_digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+  "embedding_digest": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
+  "tokenizer_digest": "a63080b4b30dc861fe1b0e420c53a241304dc81aff3d9bb315e6e33e2a1ab794",
+  "implementation_sha256": {
+    "knowledge.py": "e1fa922aa3d3c815807b4111701e40104c1ff51cbe7bb04ade88d9240695d161",
+    "strategies.py": "041984a26d5762f0c569844b55941429aa344e5a267653dc372c43860285c39b",
+    "evaluation.py": "c3de2781e021ba2a3e2d22c3ca3cdffead956490ff78028e6e1d5a9994d95ad9",
+    "evaluation_external.py": "532adf03bec7c9a019990f73bd3055a29083ffe566c177658ae1598f0419a82c",
+    "retrieval/src/main.rs": "8ceb5382802079d196ee4fb5496c0119ee174dba68a64d76a9db6cfc1fca2d94",
+    "requirements-eval.txt": "4895213916f7b334ea070c5f3fc63d9bf47a1a5288281e528d9eb80c149451e1"
+  },
+  "datasets_sha256": {
+    "qasper-dev.json": "2ae7ee62a65b1c4225791c70de80c2aad4e8998cf1fd4f09a53103db4f21af93",
+    "qasper-sample.json": "18e28e229714206974b934aa865039acdeb443bb09eb7c27e0e47dd337686593",
+    "ragbench-sample.json": "f174930461822826fc2e4e454ec6e7d719b284522cb3b00a9799c71af3e82834"
+  },
+  "seed": 481516,
+  "evidence_budget": 3072,
+  "context": 8192,
+  "temperature": 0,
+  "thinking": false,
+  "output_limit": 1024,
+  "timing": "serial local runs; method latency excludes the separate judge call"
+}

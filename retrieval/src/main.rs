@@ -51,9 +51,11 @@ struct Hit {
     score: f64,
 }
 fn validate_vector(v: &[f64], size: usize) -> Result<()> {
+    let norm_squared = v.iter().map(|x| x * x).sum::<f64>();
     if v.len() != size
         || v.iter().any(|x| !x.is_finite())
-        || v.iter().map(|x| x * x).sum::<f64>() == 0.0
+        || !norm_squared.is_finite()
+        || norm_squared == 0.0
     {
         return Err(
             "invalid embedding: dimensions, finite values, and nonzero norm required".into(),
@@ -264,5 +266,36 @@ mod tests {
         let mut r = request("unused", "search");
         r.version = 2;
         assert!(execute(r).is_err());
+    }
+    #[test]
+    fn modes_and_failed_reindex_preserve_the_existing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.db");
+        let path = path.to_str().unwrap();
+        let mut initial = request(path, "index");
+        initial.chunks = vec![
+            chunk("a", "barrier", vec![1., 0.]),
+            chunk("b", "coalescing", vec![0., 1.]),
+        ];
+        execute(initial).unwrap();
+        let mut dense = request(path, "search");
+        dense.mode = "dense".into();
+        dense.vector = vec![0., 1.];
+        assert_eq!(execute(dense).unwrap()["hits"][0]["id"], "b");
+        let mut empty = request(path, "search");
+        empty.mode = "dense".into();
+        empty.vector = vec![-1., 0.];
+        assert_eq!(execute(empty).unwrap()["hits"].as_array().unwrap().len(), 0);
+        let mut broken = request(path, "index");
+        broken.chunks = vec![
+            chunk("a", "replacement", vec![1., 0.]),
+            chunk("a", "duplicate", vec![1., 0.]),
+        ];
+        assert!(execute(broken).is_err());
+        assert_eq!(
+            execute(request(path, "search")).unwrap()["hits"][0]["text"],
+            "barrier"
+        );
+        assert!(validate_vector(&[f64::MAX], 1).is_err());
     }
 }
