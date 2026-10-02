@@ -157,6 +157,9 @@ def freeze(k, did):
     doc = k.ready("local-evaluation", did)
     manifest = {
         "schema": 1,
+        "experiment_revision": "textbook-v2-structured-citations",
+        "grading_revision": "v2.1-reviewed-unanswerable-labels",
+        "generation_contract": "supported answer plus supplied citation IDs, or explicit abstention; one final model call",
         "seed": SEED,
         "questions_sha256": digest(PUBLIC / "questions.json"),
         "annotations_sha256": digest(PRIVATE / "annotations.json"),
@@ -193,7 +196,7 @@ def freeze(k, did):
         "hardware": hardware(),
         "timing": "serial shuffled runs, resident local model; each answer includes retrieval and all method calls; no claimed cold-start baseline",
         "judge_schema": JUDGE,
-        "scoring": "semantic correctness AND numeric match when applicable; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
+        "scoring": "reviewed unanswerable labels determine abstention correctness; other answers require semantic correctness AND numeric match when applicable; citation support applies only to cited answers; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
         "status": "frozen",
         "frozen_at": time.time(),
     }
@@ -225,7 +228,9 @@ def baseline(k, did, q, gold, method):
                 {"role": "system", "content": ANSWER_PROMPT},
                 *q["history"],
                 {"role": "user", "content": q["question"] + "\n<evidence>\n\n</evidence>"},
-            ]
+            ],
+            None,
+            [],
         )
         return {
             "reply": generated["text"],
@@ -271,6 +276,9 @@ def run(k, did, split):
             record.update(status="complete", result=result)
         except Exception as error:
             record.update(status="failed", error=type(error).__name__, seconds=time.perf_counter() - start)
+            if hasattr(error, "status"):
+                # Application ProviderError messages are static; retained only in the private journal.
+                record["error_detail"] = str(error)
         journal(path, record)
         complete.add((q["id"], method, repeat))
         print(split, len(complete), "/", len(tasks), q["id"], method, record["status"], flush=True)
@@ -359,6 +367,7 @@ def score_runs(k, did, split):
             "repeat": r["repeat"],
             "status": r["status"],
             "score_status": "complete",
+            "grading_revision": "v2.1-reviewed-unanswerable-labels",
         }
         if r["status"] != "complete":
             metrics["correctness"] = 0
@@ -402,10 +411,11 @@ def score_runs(k, did, split):
                     JUDGE,
                 )
                 metrics.update(
-                    # A matching incidental number alone cannot establish correctness.
-                    correctness=int(judged.get("correct") is True)
+                    correctness=int(abstained)
+                    if a["unanswerable"]
+                    else int(judged.get("correct") is True)
                     * (metrics["numeric"] if metrics["numeric"] is not None else 1),
-                    citation_support=int(judged.get("supported") is True),
+                    citation_support=int(judged.get("supported") is True) if cited else None,
                 )
                 metrics["judge_reason"] = judged.get("reason")
             except Exception as error:
@@ -492,6 +502,7 @@ EXPORT_KEYS = (
     "evidence_tokens",
     "load_seconds",
     "score_status",
+    "grading_revision",
     "judge_error",
     "evidence_recall",
     "citation_validity",

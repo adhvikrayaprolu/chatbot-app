@@ -18,6 +18,90 @@ All 120 annotations were reviewed before held-out execution. Codex inspected the
 
 Hybrid retains the highest observed development mean and remains the default. The sample is small; paired intervals are in `retrieval-ablation-summary.json`. Passage-ID recall is sensitive to annotation coverage and chunk boundaries. It does not measure answer correctness, citation support or robustness on unseen domains.
 
+## Preserved development pilot (v1)
+
+All 120 initial development generations finished before the citation-contract correction. This is a pilot execution result; the revised development run below is reported separately.
+Held-out replication remains incomplete.
+
+| Condition | Completed answers | Rejected/failed runs | Successful median seconds |
+| --- | ---: | ---: | ---: |
+| Standard RAG | 18 / 24 | 6 | 7.33 |
+| Agentic RAG | 18 / 24 | 6 | 16.29 |
+| OKF navigation | 19 / 24 | 5 | 27.54 |
+| No retrieval | 24 / 24 | 0 | 0.70 |
+| Gold evidence | 22 / 24 | 2 | 2.70 |
+
+Three private diagnostic replays reproduced citation-validation rejection, including a
+gold-evidence case. They are excluded from benchmark results. The application fails closed
+when answer citation IDs are missing or outside supplied evidence. Completed answers can
+include appropriate abstentions; completion does not mean correctness. No-retrieval follows
+the same abstention policy and is not a measure of unconstrained model knowledge.
+
+`pilot-v1-development-generation-metrics.csv` and `pilot-v1-development-generation-summary.json` expose numeric
+runtime metadata and failure counts, including failed-run latency separately. Failed turns do
+not return complete token usage. The scored summary's latency statistics use successful
+generations; the generation summary preserves failure timing. These small development timings
+are observations on this hardware, without cold-start measurements or an answer-quality ranking.
+
+The development failures motivated a revision **before any held-out execution**. The final
+answer now has an explicit supported-answer/citation-list or abstention schema. Citation IDs
+are constrained to supplied evidence; the adapter validates them before rendering source
+links. This does not prove citation support or answer correctness, and it adds no model calls.
+The old pilot and configuration remain preserved. New runs use a separate frozen v2 manifest
+and journal; old answers are not silently replaced or mixed into the comparison.
+
+## Completed development comparison (v2)
+
+All 120 revised development generations and scores are complete, with zero generation or
+scoring failures. Each condition has 24 questions. Correctness below is an automated estimate,
+combined with deterministic numeric checks where applicable; it is not expert-verified accuracy.
+
+| Condition | Automated correctness | Cited-answer support | Passage recall | Median seconds | Mean model calls |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Standard RAG | 21/24 (87.5%) | 18/19 | 0.675 | 7.81 | 1.00 |
+| Agentic RAG | 21/24 (87.5%) | 18/19 | 0.650 | 16.80 | 3.17 |
+| OKF navigation | 21/24 (87.5%) | 10/12 | 0.150 | 28.11 | 2.88 |
+| No retrieval | 18/24 (75.0%) | Not applicable | 0.000 | 0.85 | 1.00 |
+| Gold evidence | 20/24 (83.3%) | 17/19 | 1.000 | 3.20 | 0.83 |
+
+![Development quality and runtime](development-quality-runtime.png)
+
+Passage recall has 20 answerable cases per condition. Citation support is conditional on
+answers that actually cite evidence, so its denominator differs; it does not count abstentions
+as grounded answers. Citation IDs were syntactically valid throughout. Abstention accuracy
+was 23/24 for RAG and agentic, 16/24 for OKF, 8/24 for no retrieval, and 23/24 for gold evidence.
+Gold-evidence unanswerable controls abstain without calling the generator, reducing their mean
+calls and latency. Token totals, percentile timings, category scores, supplemental Ragas scores
+and denominators are in the aggregate CSV/JSON files.
+
+RAG's median elapsed time was lower on this development set, while the three methods had equal
+estimated correctness. The agent/RAG outcomes match on these 24 binary judgments, producing a
+zero-width observed paired bootstrap interval; this does not prove population equivalence.
+OKF minus RAG has a paired correctness interval of [-0.167, 0.167]. Gold evidence scoring below
+RAG and OKF's high correctness despite low recall/abstention accuracy warrant scrutiny of judge
+reliability and annotation coverage. These are development observations, not a final ranking.
+
+### Transparent grading correction
+
+The first development scoring pass marked explicit abstentions incorrect even when the answer
+exactly matched the reviewed unanswerable reference. Grading revision
+`v2.1-reviewed-unanswerable-labels` uses the reviewed label and explicit abstention for those
+cases, and excludes uncited answers from the citation-support denominator. Existing development
+answers were regraded deterministically without new generation or judge calls. The earlier
+scores, chart and configuration are preserved as `judge-pilot-*`.
+
+This correction occurred after held-out generation started, but before any held-out scoring or
+inspection of its outputs. Corpus, annotations, methods, model digests, prompts, budgets and
+generation functions were unchanged; hashes and the correction are recorded in the manifest.
+QASPER uses the same labeled-unanswerable rule. This disclosure limits any claim that the
+entire grading implementation was frozen before the held-out generation began.
+
+The local evaluation processes ended after 217 held-out generation records. Resumption keeps
+those records; a restarted service can introduce model loading time on its first subsequent
+calls. Load times remain recorded separately. No consistent cold/warm timing or speedup claim
+is made across that interruption. Full held-out scoring, external experiments and audit remain
+incomplete.
+
 ## Evaluation status
 
 - The frozen textbook comparison has 24 development questions and 96 held-out questions across six categories. Five conditions include standard RAG, agentic RAG, OKF navigation, no-retrieval and gold-evidence controls. Three held-out repetitions require 1,440 generation runs plus separate scoring.

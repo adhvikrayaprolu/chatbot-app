@@ -1,7 +1,6 @@
 {
   "schema": 1,
   "experiment_revision": "textbook-v2-structured-citations",
-  "grading_revision": "v2.1-reviewed-unanswerable-labels",
   "generation_contract": "supported answer plus supplied citation IDs, or explicit abstention; one final model call",
   "seed": 481516,
   "questions_sha256": "46df3c87d5ebf3f9e01119f82d6b6e0a29e11ec8f71d54b49ecf89b9d4d3c5b4",
@@ -51,8 +50,8 @@
     "retrieval/src/main.rs": "8ceb5382802079d196ee4fb5496c0119ee174dba68a64d76a9db6cfc1fca2d94",
     "requirements.txt": "39909d05104de4420f146e6fbca0d080d113363b260d54049a2fa5296a4c730a",
     "requirements-eval.txt": "4895213916f7b334ea070c5f3fc63d9bf47a1a5288281e528d9eb80c149451e1",
-    "evaluation.py": "ad1e94aef8ac2a6239e49276b773b5a26341d0aaec92da7cd304f1f07817f059",
-    "evaluation_external.py": "e3e02825cac0fec4906e385d8c8ab7cb7c8c7f989175953394d5fcf2e8f63789"
+    "evaluation.py": "17d2815c5f5a05a28183ecb44a046a56ceac80ed1f105dc4954143a88cd9f46f",
+    "evaluation_external.py": "532adf03bec7c9a019990f73bd3055a29083ffe566c177658ae1598f0419a82c"
   },
   "python": "3.13.1",
   "machine": "arm64",
@@ -88,13 +87,7 @@
       "supported"
     ]
   },
-  "scoring": "reviewed unanswerable labels determine abstention correctness; other answers require semantic correctness AND numeric match when applicable; citation support applies only to cited answers; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
+  "scoring": "semantic correctness AND numeric match when applicable; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
   "status": "frozen",
-  "frozen_at": 1790956709.32702,
-  "generation_frozen_at": 1790929484.179754,
-  "generation_functions_sha256": {
-    "baseline": "fa2dba00616a29a5b745e87cec119be71fca8a78c3c8887eec18158053fffee6",
-    "run": "b6ba1645ffb30ffb393ea21eecfcdf5506f61da08ac0598c24442d252ba0a5a4"
-  },
-  "grading_correction": "Derived only from development: use reviewed unanswerable labels and exclude uncited answers from citation-support denominator. No held-out outputs inspected; generator/prompts/models/corpus/data and generation functions unchanged."
+  "frozen_at": 1790929484.179754
 }

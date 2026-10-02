@@ -221,8 +221,10 @@ def qasper(k):
                 record.update(
                     status="complete",
                     result=result,
-                    correctness=int(judged["correct"]),
-                    citation_support=int(judged["supported"]),
+                    correctness=int(result["reply"].startswith("Insufficient evidence"))
+                    if q["unanswerable"]
+                    else int(judged["correct"]),
+                    citation_support=int(judged["supported"]) if result["citations"] else None,
                     paragraph_recall=recall,
                     abstention_accuracy=int(result["reply"].startswith("Insufficient evidence") == q["unanswerable"]),
                 )

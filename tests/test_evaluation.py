@@ -150,3 +150,83 @@ def test_judge_failure_is_recorded_without_losing_the_next_run(tmp_path, monkeyp
     assert records[0]["judge_error"] == "TimeoutError"
     assert records[1]["score_status"] == "complete"
     assert records[1]["correctness"] == 1
+
+
+def test_reviewed_unanswerable_label_overrules_a_contradictory_judge(tmp_path, monkeypatch):
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(evaluation, "PRIVATE", private)
+    monkeypatch.setattr(evaluation, "validate_manifest", lambda *args: {})
+    monkeypatch.setattr(
+        evaluation, "questions", lambda split: [{"id": "missing", "question": "A private live value?", "history": []}]
+    )
+    evaluation.save(
+        private / "annotations.json",
+        [
+            {
+                "id": "missing",
+                "reference": "Insufficient evidence in this document.",
+                "gold_ids": [],
+                "unanswerable": True,
+            }
+        ],
+    )
+    evaluation.journal(
+        private / "development-runs.jsonl",
+        {
+            "id": "missing",
+            "category": "unanswerable",
+            "method": "rag",
+            "repeat": 0,
+            "status": "complete",
+            "result": {
+                "reply": "Insufficient evidence in this document.",
+                "evidence": [],
+                "seconds": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "model_calls": 0,
+                "evidence_tokens": 0,
+                "load_seconds": 0,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "decision",
+        lambda *args: ({"correct": False, "supported": False, "reason": "Contradictory verdict"}, {}),
+    )
+    fake = type("Knowledge", (), {"models": None, "context": lambda self, evidence: ""})()
+    evaluation.score_runs(fake, "document", "development")
+    scored = evaluation.rows(private / "development-scores.jsonl")[0]
+    assert scored["correctness"] == 1
+    assert scored["citation_support"] is None
+    assert scored["abstention_accuracy"] == 1
+
+
+def test_generation_export_excludes_private_content_and_preserves_failure_timing(tmp_path, monkeypatch):
+    from scripts.run_evaluations import export_generations
+
+    private, public = tmp_path / "private", tmp_path / "public"
+    private.mkdir()
+    public.mkdir()
+    monkeypatch.setattr(evaluation, "PRIVATE", private)
+    monkeypatch.setattr(evaluation, "PUBLIC", public)
+    monkeypatch.setattr(evaluation, "questions", lambda split: [{"id": "a"}])
+    for status in ("complete", "failed"):
+        evaluation.journal(
+            private / "development-runs.jsonl",
+            {
+                "id": "a", "category": "factual", "method": "rag", "repeat": 0,
+                "status": status, "error": "TimeoutError" if status == "failed" else None,
+                "error_detail": "PRIVATE CREDENTIAL", "seconds": 12,
+                "result": {"seconds": 3, "reply": "PRIVATE ANSWER", "evidence": ["PRIVATE SOURCE"]},
+            },
+        )
+    export_generations("development")
+    csv = (public / "development-generation-metrics.csv").read_text()
+    assert "PRIVATE" not in csv
+    summary = json.loads((public / "development-generation-summary.json").read_text())
+    assert summary["status"] == "incomplete"
+    assert summary["methods"]["rag"]["failed_latency"]["p50"] == 12
+    assert summary["methods"]["rag"]["complete_latency"]["p50"] == 3

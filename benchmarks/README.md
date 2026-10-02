@@ -30,7 +30,10 @@ assesses evidence, with at most two rounds and five model calls including its fi
 OKF navigates a source-backed Markdown root index and passage links, with two hops and three
 calls. All use the same local qwen3:4b generator, thinking disabled, temperature zero,
 8,192-token context and 1,024-token output cap; the same citation/abstention prompt; and a
-3,072-token evidence budget. Generation is schema-constrained to a public final answer.
+3,072-token evidence budget. Generation is schema-constrained to a final answer with supplied citation IDs or explicit abstention.
+The initial 120-run development pilot is preserved separately as `pilot-v1-*`; its citation
+rejections motivated the v2 contract before any held-out execution. Pilot and v2 results are
+never combined.
 LangChain supplies model adapters, LangGraph supplies state transitions, and neither owns
 storage. Exact cosine and FTS5 search remain in the Rust engine.
 
@@ -53,7 +56,9 @@ citation support, correctness, abstention accuracy, tokens, model calls, failure
 p50/p90/p95. Numeric/vector answers receive deterministic checks, combined with the semantic judge
 rather than allowing a matching incidental number to establish correctness. Scalar checks
 have a relative tolerance of 1e-6; judge errors and incidental matches still need audit.
-Citation ID validity is syntactic, not a guarantee of support. Passage recall depends on chunk
+Reviewed unanswerable labels determine correctness from explicit abstention, rather than a
+contradictory semantic-judge vote. Citation support is reported only for answers with citations;
+uncited answers and abstentions have a null score. Citation ID validity is syntactic, not a guarantee of support. Passage recall depends on chunk
 boundaries and annotation completeness; it is not semantic recall of all acceptable evidence.
 
 Local Ragas faithfulness and response relevance are supplemental automated metrics. Ragas uses
@@ -137,6 +142,10 @@ a rerun of a changed configuration needs a new revision, not overwriting prior o
   source review. There are 20 measurements per mode; IDs and timings are exported in
   `development-retrieval-ablation.json`.
   Hybrid remains the implementation default. These figures do not establish answer quality.
+- Revised development generation and scoring completed all 120 runs without failures. The
+  three methods each received estimated correctness 21/24; median times were 7.81 seconds
+  RAG, 16.80 agentic and 28.11 OKF. These development estimates are not a final quality ranking.
+  The [findings](findings.md) disclose the preserved pilot, grading correction and timing interruption.
 - Real-model public-fixture checks produce cited answers through all three methods. These are
   smoke checks, not comparative benchmark scores.
 - The offline browser, Python/Rust regressions and container checks pass. No textbook content

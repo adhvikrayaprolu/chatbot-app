@@ -13,7 +13,7 @@
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.875,
+        "mean": 0.7083333333333334,
         "n": 24
       },
       "citation_validity": {
@@ -21,8 +21,8 @@
         "n": 24
       },
       "citation_support": {
-        "mean": 0.9473684210526315,
-        "n": 19
+        "mean": 0.75,
+        "n": 24
       },
       "abstention_accuracy": {
         "mean": 0.9583333333333334,
@@ -62,19 +62,19 @@
         "p95": 12.344960999907926
       },
       "by_category": {
-        "unanswerable": 1,
-        "followup": 1,
         "synthesis": 0.75,
+        "factual": 0.75,
+        "unanswerable": 0,
+        "followup": 1,
         "conceptual": 1,
-        "code_formula": 0.75,
-        "factual": 0.75
+        "code_formula": 0.75
       }
     },
     "agentic": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.875,
+        "mean": 0.7083333333333334,
         "n": 24
       },
       "citation_validity": {
@@ -82,8 +82,8 @@
         "n": 24
       },
       "citation_support": {
-        "mean": 0.9473684210526315,
-        "n": 19
+        "mean": 0.75,
+        "n": 24
       },
       "abstention_accuracy": {
         "mean": 0.9583333333333334,
@@ -123,19 +123,19 @@
         "p95": 21.814278541132808
       },
       "by_category": {
-        "unanswerable": 1,
-        "followup": 1,
         "synthesis": 0.75,
+        "factual": 0.75,
+        "unanswerable": 0,
+        "followup": 1,
         "conceptual": 1,
-        "code_formula": 0.75,
-        "factual": 0.75
+        "code_formula": 0.75
       }
     },
     "okf": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.875,
+        "mean": 0.7083333333333334,
         "n": 24
       },
       "citation_validity": {
@@ -143,8 +143,8 @@
         "n": 24
       },
       "citation_support": {
-        "mean": 0.8333333333333334,
-        "n": 12
+        "mean": 0.6666666666666666,
+        "n": 24
       },
       "abstention_accuracy": {
         "mean": 0.6666666666666666,
@@ -184,19 +184,19 @@
         "p95": 32.15078216721304
       },
       "by_category": {
-        "unanswerable": 1,
-        "followup": 0.75,
         "synthesis": 1,
+        "factual": 0.75,
+        "unanswerable": 0,
+        "followup": 0.75,
         "conceptual": 1,
-        "code_formula": 0.75,
-        "factual": 0.75
+        "code_formula": 0.75
       }
     },
     "no_retrieval": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.75,
+        "mean": 0.5833333333333334,
         "n": 24
       },
       "citation_validity": {
@@ -204,8 +204,8 @@
         "n": 24
       },
       "citation_support": {
-        "mean": null,
-        "n": 0
+        "mean": 0.4583333333333333,
+        "n": 24
       },
       "abstention_accuracy": {
         "mean": 0.3333333333333333,
@@ -245,19 +245,19 @@
         "p95": 2.4830809158738703
       },
       "by_category": {
-        "unanswerable": 1,
-        "followup": 0.5,
         "synthesis": 1,
+        "factual": 0.75,
+        "unanswerable": 0,
+        "followup": 0.5,
         "conceptual": 1,
-        "code_formula": 0.25,
-        "factual": 0.75
+        "code_formula": 0.25
       }
     },
     "gold_evidence": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.8333333333333334,
+        "mean": 0.6666666666666666,
         "n": 24
       },
       "citation_validity": {
@@ -265,8 +265,8 @@
         "n": 24
       },
       "citation_support": {
-        "mean": 0.8947368421052632,
-        "n": 19
+        "mean": 0.7083333333333334,
+        "n": 24
       },
       "abstention_accuracy": {
         "mean": 0.9583333333333334,
@@ -306,12 +306,12 @@
         "p95": 6.258044459158555
       },
       "by_category": {
-        "unanswerable": 1,
-        "followup": 0.5,
         "synthesis": 1,
+        "factual": 1,
+        "unanswerable": 0,
+        "followup": 0.5,
         "conceptual": 1,
-        "code_formula": 0.5,
-        "factual": 1
+        "code_formula": 0.5
       }
     }
   },

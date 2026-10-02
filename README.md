@@ -57,7 +57,7 @@ Signed browser cookies identify owners; every document, conversation and experim
 
 LangChain supplies the Ollama model adapters and structured interfaces. LangGraph supplies explicit state and bounded transitions for the agent. Neither framework replaces the Rust engine or owns database storage. OKF v0.2 is a linked Markdown format, not another model: generated bundles preserve source content, provenance and `draft` status, without claiming human verification.
 
-All methods use `qwen3:4b`, thinking disabled, temperature zero, an 8,192-token context window, a 1,024-token output cap, the same citation/abstention instructions and a 3,072-token evidence budget. Document text is treated as untrusted evidence. The application validates citation IDs against supplied passages and abstains when evidence is missing. Valid IDs alone do not establish factual support.
+All methods use `qwen3:4b`, thinking disabled, temperature zero, an 8,192-token context window, a 1,024-token output cap, the same citation/abstention instructions and a 3,072-token evidence budget. Document text is treated as untrusted evidence. The final answer schema requires supplied citation IDs or explicit abstention; the adapter validates IDs before rendering links, and the application checks inline IDs too. It abstains when evidence is missing. Valid IDs alone do not establish factual support.
 
 ## Verification
 
@@ -74,7 +74,7 @@ Offline tests use original fixtures and fake providers. They cover ownership iso
 
 ## Benchmarks and measured findings
 
-[Methodology](benchmarks/README.md) documents the original 120-question suite, reference-review actors, controls, paired uncertainty intervals, frozen configurations and reproducible commands. [Findings](benchmarks/findings.md) states what is measured and what remains incomplete. Detailed answers, reference annotations and textbook passages stay private.
+[Methodology](benchmarks/README.md) documents the original 120-question suite, reference-review actors, controls, paired uncertainty intervals, frozen configurations and reproducible commands. [Findings](benchmarks/findings.md) reports the completed 120-run development comparison: all three methods scored 21/24 under automated grading, with median times of 7.81 seconds for RAG, 16.80 for agentic and 28.11 for OKF. Held-out comparisons, external calibration and separate audit remain incomplete; no final quality winner is established. Detailed answers, reference annotations and textbook passages stay private.
 
 Development passage recall@5 on 20 source-reviewed answerable questions was **40.0% lexical, 60.0% dense and 67.5% hybrid**. Hybrid remains the default. This small retrieval result does not establish which answering method is best. Held-out generation/scoring, the 50-question QASPER probe, 50-example RAGBench evaluator calibration and 24-case independent audit must finish before a quality recommendation.
 
