@@ -1,0 +1,288 @@
+{
+  "status": "incomplete",
+  "completed": 0,
+  "expected": 1440,
+  "generation": {
+    "recorded": 0,
+    "succeeded": 0,
+    "failed": 0
+  },
+  "scoring_failures": 0,
+  "methods": {
+    "rag": {
+      "runs": 0,
+      "failures": 0,
+      "correctness": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_validity": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": null,
+        "n": 0
+      },
+      "evidence_recall": {
+        "mean": null,
+        "n": 0
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": null,
+        "n": 0
+      },
+      "input_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "output_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "load_seconds": {
+        "mean": null,
+        "n": 0
+      },
+      "latency": {
+        "p50": null,
+        "p90": null,
+        "p95": null
+      },
+      "by_category": {}
+    },
+    "agentic": {
+      "runs": 0,
+      "failures": 0,
+      "correctness": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_validity": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": null,
+        "n": 0
+      },
+      "evidence_recall": {
+        "mean": null,
+        "n": 0
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": null,
+        "n": 0
+      },
+      "input_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "output_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "load_seconds": {
+        "mean": null,
+        "n": 0
+      },
+      "latency": {
+        "p50": null,
+        "p90": null,
+        "p95": null
+      },
+      "by_category": {}
+    },
+    "okf": {
+      "runs": 0,
+      "failures": 0,
+      "correctness": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_validity": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": null,
+        "n": 0
+      },
+      "evidence_recall": {
+        "mean": null,
+        "n": 0
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": null,
+        "n": 0
+      },
+      "input_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "output_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "load_seconds": {
+        "mean": null,
+        "n": 0
+      },
+      "latency": {
+        "p50": null,
+        "p90": null,
+        "p95": null
+      },
+      "by_category": {}
+    },
+    "no_retrieval": {
+      "runs": 0,
+      "failures": 0,
+      "correctness": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_validity": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": null,
+        "n": 0
+      },
+      "evidence_recall": {
+        "mean": null,
+        "n": 0
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": null,
+        "n": 0
+      },
+      "input_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "output_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "load_seconds": {
+        "mean": null,
+        "n": 0
+      },
+      "latency": {
+        "p50": null,
+        "p90": null,
+        "p95": null
+      },
+      "by_category": {}
+    },
+    "gold_evidence": {
+      "runs": 0,
+      "failures": 0,
+      "correctness": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_validity": {
+        "mean": null,
+        "n": 0
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": null,
+        "n": 0
+      },
+      "evidence_recall": {
+        "mean": null,
+        "n": 0
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": null,
+        "n": 0
+      },
+      "input_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "output_tokens": {
+        "mean": null,
+        "n": 0
+      },
+      "load_seconds": {
+        "mean": null,
+        "n": 0
+      },
+      "latency": {
+        "p50": null,
+        "p90": null,
+        "p95": null
+      },
+      "by_category": {}
+    }
+  },
+  "paired": {
+    "agentic-minus-rag": null,
+    "okf-minus-rag": null,
+    "gold_evidence-minus-rag": null
+  }
+}

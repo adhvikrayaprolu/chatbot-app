@@ -1,0 +1,23 @@
+{
+  "questions": 20,
+  "means": {
+    "lexical": 0.4,
+    "dense": 0.6,
+    "hybrid": 0.675
+  },
+  "paired": {
+    "hybrid-minus-dense": {
+      "difference": 0.075,
+      "lower": -0.125,
+      "upper": 0.275,
+      "paired_questions": 20
+    },
+    "hybrid-minus-lexical": {
+      "difference": 0.275,
+      "lower": 0.1,
+      "upper": 0.475,
+      "paired_questions": 20
+    }
+  },
+  "conditions": "serial development queries; resident model, local observability containers present; no cold-start comparison"
+}

@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "at": "2026-10-02T18:40:43.275040+00:00",
+      "phase": "heldout-generation",
+      "recorded_before_resume": 217,
+      "event": "Local model service and coordinator no longer running; resumed saved journals with unchanged generation configuration. Service restart can introduce loading latency; detailed runs record load_seconds."
+    },
+    {
+      "at": "2026-10-02T22:04:32.126183+00:00",
+      "phase": "heldout-generation",
+      "event": "Terminal-bound model service ended. Prior execution invalidated and preserved: 312 completed generations, 1128 failures. Replacement execution textbook-v3-outage-guard starts from zero with unchanged answering policy and outage pause boundaries."
+    }
+  ]
+}

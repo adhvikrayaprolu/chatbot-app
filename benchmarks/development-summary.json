@@ -1,0 +1,338 @@
+{
+  "status": "complete",
+  "completed": 120,
+  "expected": 120,
+  "generation": {
+    "recorded": 120,
+    "succeeded": 120,
+    "failed": 0
+  },
+  "scoring_failures": 0,
+  "methods": {
+    "rag": {
+      "runs": 24,
+      "failures": 0,
+      "correctness": {
+        "mean": 0.875,
+        "n": 24
+      },
+      "citation_validity": {
+        "mean": 1,
+        "n": 24
+      },
+      "citation_support": {
+        "mean": 0.9473684210526315,
+        "n": 19
+      },
+      "abstention_accuracy": {
+        "mean": 0.9583333333333334,
+        "n": 24
+      },
+      "evidence_recall": {
+        "mean": 0.675,
+        "n": 20
+      },
+      "faithfulness": {
+        "mean": 0.8201754385964912,
+        "n": 19
+      },
+      "relevance": {
+        "mean": 0.5197964323449408,
+        "n": 19
+      },
+      "model_calls": {
+        "mean": 1,
+        "n": 24
+      },
+      "input_tokens": {
+        "mean": 2396.2083333333335,
+        "n": 24
+      },
+      "output_tokens": {
+        "mean": 46.875,
+        "n": 24
+      },
+      "load_seconds": {
+        "mean": 0.0014502012916666667,
+        "n": 24
+      },
+      "latency": {
+        "p50": 7.812669083010405,
+        "p90": 11.709173624869436,
+        "p95": 12.344960999907926
+      },
+      "by_category": {
+        "unanswerable": 1,
+        "code_formula": 0.75,
+        "factual": 0.75,
+        "followup": 1,
+        "conceptual": 1,
+        "synthesis": 0.75
+      }
+    },
+    "agentic": {
+      "runs": 24,
+      "failures": 0,
+      "correctness": {
+        "mean": 0.875,
+        "n": 24
+      },
+      "citation_validity": {
+        "mean": 1,
+        "n": 24
+      },
+      "citation_support": {
+        "mean": 0.9473684210526315,
+        "n": 19
+      },
+      "abstention_accuracy": {
+        "mean": 0.9583333333333334,
+        "n": 24
+      },
+      "evidence_recall": {
+        "mean": 0.65,
+        "n": 20
+      },
+      "faithfulness": {
+        "mean": 0.793859649122807,
+        "n": 19
+      },
+      "relevance": {
+        "mean": 0.5189154239548823,
+        "n": 19
+      },
+      "model_calls": {
+        "mean": 3.1666666666666665,
+        "n": 24
+      },
+      "input_tokens": {
+        "mean": 4671.083333333333,
+        "n": 24
+      },
+      "output_tokens": {
+        "mean": 80.375,
+        "n": 24
+      },
+      "load_seconds": {
+        "mean": 0.007448243125,
+        "n": 24
+      },
+      "latency": {
+        "p50": 16.795677958987653,
+        "p90": 19.75655100005679,
+        "p95": 21.814278541132808
+      },
+      "by_category": {
+        "unanswerable": 1,
+        "code_formula": 0.75,
+        "factual": 0.75,
+        "followup": 1,
+        "conceptual": 1,
+        "synthesis": 0.75
+      }
+    },
+    "okf": {
+      "runs": 24,
+      "failures": 0,
+      "correctness": {
+        "mean": 0.5833333333333334,
+        "n": 24
+      },
+      "citation_validity": {
+        "mean": 1,
+        "n": 24
+      },
+      "citation_support": {
+        "mean": 0.8333333333333334,
+        "n": 12
+      },
+      "abstention_accuracy": {
+        "mean": 0.6666666666666666,
+        "n": 24
+      },
+      "evidence_recall": {
+        "mean": 0.15,
+        "n": 20
+      },
+      "faithfulness": {
+        "mean": 0.5803571428571429,
+        "n": 12
+      },
+      "relevance": {
+        "mean": 0.5059933846541844,
+        "n": 12
+      },
+      "model_calls": {
+        "mean": 2.875,
+        "n": 24
+      },
+      "input_tokens": {
+        "mean": 7628.208333333333,
+        "n": 24
+      },
+      "output_tokens": {
+        "mean": 92.75,
+        "n": 24
+      },
+      "load_seconds": {
+        "mean": 0.008633933916666666,
+        "n": 24
+      },
+      "latency": {
+        "p50": 28.112929958151653,
+        "p90": 31.714398582931608,
+        "p95": 32.15078216721304
+      },
+      "by_category": {
+        "unanswerable": 1,
+        "code_formula": 0.5,
+        "factual": 0.5,
+        "followup": 0.5,
+        "conceptual": 0.5,
+        "synthesis": 0.5
+      }
+    },
+    "no_retrieval": {
+      "runs": 24,
+      "failures": 0,
+      "correctness": {
+        "mean": 0.25,
+        "n": 24
+      },
+      "citation_validity": {
+        "mean": 1,
+        "n": 24
+      },
+      "citation_support": {
+        "mean": null,
+        "n": 0
+      },
+      "abstention_accuracy": {
+        "mean": 0.3333333333333333,
+        "n": 24
+      },
+      "evidence_recall": {
+        "mean": 0.0,
+        "n": 20
+      },
+      "faithfulness": {
+        "mean": null,
+        "n": 0
+      },
+      "relevance": {
+        "mean": null,
+        "n": 0
+      },
+      "model_calls": {
+        "mean": 1,
+        "n": 24
+      },
+      "input_tokens": {
+        "mean": 233,
+        "n": 24
+      },
+      "output_tokens": {
+        "mean": 17.375,
+        "n": 24
+      },
+      "load_seconds": {
+        "mean": 0.002396715375,
+        "n": 24
+      },
+      "latency": {
+        "p50": 0.8498432498890907,
+        "p90": 2.0827460000291467,
+        "p95": 2.4830809158738703
+      },
+      "by_category": {
+        "unanswerable": 1,
+        "code_formula": 0,
+        "factual": 0,
+        "followup": 0.5,
+        "conceptual": 0,
+        "synthesis": 0
+      }
+    },
+    "gold_evidence": {
+      "runs": 24,
+      "failures": 0,
+      "correctness": {
+        "mean": 0.8333333333333334,
+        "n": 24
+      },
+      "citation_validity": {
+        "mean": 1,
+        "n": 24
+      },
+      "citation_support": {
+        "mean": 0.8947368421052632,
+        "n": 19
+      },
+      "abstention_accuracy": {
+        "mean": 0.9583333333333334,
+        "n": 24
+      },
+      "evidence_recall": {
+        "mean": 1.0,
+        "n": 20
+      },
+      "faithfulness": {
+        "mean": 0.7929824561403509,
+        "n": 19
+      },
+      "relevance": {
+        "mean": 0.5443544237040651,
+        "n": 19
+      },
+      "model_calls": {
+        "mean": 0.8333333333333334,
+        "n": 24
+      },
+      "input_tokens": {
+        "mean": 721.125,
+        "n": 24
+      },
+      "output_tokens": {
+        "mean": 42.291666666666664,
+        "n": 24
+      },
+      "load_seconds": {
+        "mean": 0.0032786059166666666,
+        "n": 24
+      },
+      "latency": {
+        "p50": 3.1972296671010554,
+        "p90": 5.957086083013564,
+        "p95": 6.258044459158555
+      },
+      "by_category": {
+        "unanswerable": 1,
+        "code_formula": 0.5,
+        "factual": 1,
+        "followup": 0.5,
+        "conceptual": 1,
+        "synthesis": 1
+      }
+    }
+  },
+  "paired": {
+    "agentic-minus-rag": {
+      "difference": 0,
+      "lower": 0,
+      "upper": 0,
+      "paired_questions": 24
+    },
+    "okf-minus-rag": {
+      "difference": -0.2916666666666667,
+      "lower": -0.5,
+      "upper": -0.041666666666666664,
+      "paired_questions": 24
+    },
+    "gold_evidence-minus-rag": {
+      "difference": -0.041666666666666664,
+      "lower": -0.25,
+      "upper": 0.125,
+      "paired_questions": 24
+    }
+  }
+}

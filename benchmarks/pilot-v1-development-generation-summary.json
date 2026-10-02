@@ -1,0 +1,94 @@
+{
+  "status": "complete",
+  "expected": 120,
+  "recorded": 120,
+  "scoring_status": "pending",
+  "methods": {
+    "rag": {
+      "recorded": 24,
+      "succeeded": 18,
+      "failed": 6,
+      "complete_latency": {
+        "n": 18,
+        "p50": 7.3348695419263095,
+        "p90": 10.685699291992933,
+        "p95": 10.923293167026713
+      },
+      "failed_latency": {
+        "n": 6,
+        "p50": 7.066727208904922,
+        "p90": 8.87746408302337,
+        "p95": 8.87746408302337
+      }
+    },
+    "agentic": {
+      "recorded": 24,
+      "succeeded": 18,
+      "failed": 6,
+      "complete_latency": {
+        "n": 18,
+        "p50": 16.287662666058168,
+        "p90": 21.847644083900377,
+        "p95": 22.372067207936198
+      },
+      "failed_latency": {
+        "n": 6,
+        "p50": 15.127902042120695,
+        "p90": 18.845490541076288,
+        "p95": 18.845490541076288
+      }
+    },
+    "okf": {
+      "recorded": 24,
+      "succeeded": 19,
+      "failed": 5,
+      "complete_latency": {
+        "n": 19,
+        "p50": 27.539434917038307,
+        "p90": 30.461498250020668,
+        "p95": 31.25736570893787
+      },
+      "failed_latency": {
+        "n": 5,
+        "p50": 30.263133417116478,
+        "p90": 30.505405792035162,
+        "p95": 30.505405792035162
+      }
+    },
+    "no_retrieval": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 0.6983181249815971,
+        "p90": 2.284531957935542,
+        "p95": 2.411025500157848
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    },
+    "gold_evidence": {
+      "recorded": 24,
+      "succeeded": 22,
+      "failed": 2,
+      "complete_latency": {
+        "n": 22,
+        "p50": 2.7036434169858694,
+        "p90": 4.553033874835819,
+        "p95": 4.6795507909264416
+      },
+      "failed_latency": {
+        "n": 2,
+        "p50": 2.8845970418769866,
+        "p90": 2.8845970418769866,
+        "p95": 2.8845970418769866
+      }
+    }
+  },
+  "note": "Only generation is complete. Diagnostic replays are excluded; failure token usage is unavailable because no completed response was returned."
+}

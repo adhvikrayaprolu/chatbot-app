@@ -1,0 +1,93 @@
+{
+  "status": "complete",
+  "expected": 120,
+  "recorded": 120,
+  "methods": {
+    "rag": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 7.812669083010405,
+        "p90": 11.709173624869436,
+        "p95": 12.344960999907926
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    },
+    "agentic": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 16.795677958987653,
+        "p90": 19.75655100005679,
+        "p95": 21.814278541132808
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    },
+    "okf": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 28.112929958151653,
+        "p90": 31.714398582931608,
+        "p95": 32.15078216721304
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    },
+    "no_retrieval": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 0.8498432498890907,
+        "p90": 2.0827460000291467,
+        "p95": 2.4830809158738703
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    },
+    "gold_evidence": {
+      "recorded": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "complete_latency": {
+        "n": 24,
+        "p50": 3.1972296671010554,
+        "p90": 5.957086083013564,
+        "p95": 6.258044459158555
+      },
+      "failed_latency": {
+        "n": 0,
+        "p50": null,
+        "p90": null,
+        "p95": null
+      }
+    }
+  },
+  "note": "Generation only; semantic scoring is separate. Failed-response token usage is unavailable."
+}
