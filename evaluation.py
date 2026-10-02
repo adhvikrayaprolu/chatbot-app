@@ -158,7 +158,7 @@ def freeze(k, did):
     manifest = {
         "schema": 1,
         "experiment_revision": "textbook-v2-structured-citations",
-        "grading_revision": "v2.1-reviewed-unanswerable-labels",
+        "grading_revision": "v2.2-reviewed-abstention-policy",
         "generation_contract": "supported answer plus supplied citation IDs, or explicit abstention; one final model call",
         "seed": SEED,
         "questions_sha256": digest(PUBLIC / "questions.json"),
@@ -196,7 +196,7 @@ def freeze(k, did):
         "hardware": hardware(),
         "timing": "serial shuffled runs, resident local model; each answer includes retrieval and all method calls; no claimed cold-start baseline",
         "judge_schema": JUDGE,
-        "scoring": "reviewed unanswerable labels determine abstention correctness; other answers require semantic correctness AND numeric match when applicable; citation support applies only to cited answers; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
+        "scoring": "reviewed unanswerable labels determine abstention correctness; answerable cases require non-abstention, semantic correctness AND numeric match when applicable; citation support applies only to cited answers; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
         "status": "frozen",
         "frozen_at": time.time(),
     }
@@ -367,7 +367,7 @@ def score_runs(k, did, split):
             "repeat": r["repeat"],
             "status": r["status"],
             "score_status": "complete",
-            "grading_revision": "v2.1-reviewed-unanswerable-labels",
+            "grading_revision": "v2.2-reviewed-abstention-policy",
         }
         if r["status"] != "complete":
             metrics["correctness"] = 0
@@ -413,7 +413,7 @@ def score_runs(k, did, split):
                 metrics.update(
                     correctness=int(abstained)
                     if a["unanswerable"]
-                    else int(judged.get("correct") is True)
+                    else int(not abstained and judged.get("correct") is True)
                     * (metrics["numeric"] if metrics["numeric"] is not None else 1),
                     citation_support=int(judged.get("supported") is True) if cited else None,
                 )

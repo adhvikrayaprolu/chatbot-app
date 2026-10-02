@@ -60,8 +60,8 @@ combined with deterministic numeric checks where applicable; it is not expert-ve
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Standard RAG | 21/24 (87.5%) | 18/19 | 0.675 | 7.81 | 1.00 |
 | Agentic RAG | 21/24 (87.5%) | 18/19 | 0.650 | 16.80 | 3.17 |
-| OKF navigation | 21/24 (87.5%) | 10/12 | 0.150 | 28.11 | 2.88 |
-| No retrieval | 18/24 (75.0%) | Not applicable | 0.000 | 0.85 | 1.00 |
+| OKF navigation | 14/24 (58.3%) | 10/12 | 0.150 | 28.11 | 2.88 |
+| No retrieval | 6/24 (25.0%) | Not applicable | 0.000 | 0.85 | 1.00 |
 | Gold evidence | 20/24 (83.3%) | 17/19 | 1.000 | 3.20 | 0.83 |
 
 ![Development quality and runtime](development-quality-runtime.png)
@@ -74,20 +74,24 @@ Gold-evidence unanswerable controls abstain without calling the generator, reduc
 calls and latency. Token totals, percentile timings, category scores, supplemental Ragas scores
 and denominators are in the aggregate CSV/JSON files.
 
-RAG's median elapsed time was lower on this development set, while the three methods had equal
-estimated correctness. The agent/RAG outcomes match on these 24 binary judgments, producing a
+RAG's median elapsed time was lower on this development set. RAG and agentic had equal
+estimated correctness; OKF scored lower after rejecting incorrect abstentions. The agent/RAG outcomes match on these 24 binary judgments, producing a
 zero-width observed paired bootstrap interval; this does not prove population equivalence.
-OKF minus RAG has a paired correctness interval of [-0.167, 0.167]. Gold evidence scoring below
-RAG and OKF's high correctness despite low recall/abstention accuracy warrant scrutiny of judge
-reliability and annotation coverage. These are development observations, not a final ranking.
+OKF minus RAG has mean paired correctness difference -0.292 and an interval of [-0.500, -0.042].
+Gold evidence scoring below RAG still warrants scrutiny of judge reliability and annotation
+coverage. These are development observations, not a final ranking.
 
 ### Transparent grading correction
 
 The first development scoring pass marked explicit abstentions incorrect even when the answer
 exactly matched the reviewed unanswerable reference. Grading revision
-`v2.1-reviewed-unanswerable-labels` uses the reviewed label and explicit abstention for those
-cases, and excludes uncited answers from the citation-support denominator. Existing development
-answers were regraded deterministically without new generation or judge calls. The earlier
+`v2.2-reviewed-abstention-policy` uses the reviewed label and explicit abstention for those
+cases, rejects abstention on answerable cases, and excludes uncited answers from the
+citation-support denominator. The development consistency check found seven OKF and twelve
+no-retrieval abstentions incorrectly accepted by the semantic judge. The intermediate v2.1
+pass corrected unanswerable cases but still rewarded those answerable-case abstentions; its
+artifacts are preserved as `grading-v2.1-*`. Existing development
+answers were regraded deterministically without new generation or judge calls. The original
 scores, chart and configuration are preserved as `judge-pilot-*`.
 
 This correction occurred after held-out generation started, but before any held-out scoring or

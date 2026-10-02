@@ -63,11 +63,11 @@
       },
       "by_category": {
         "unanswerable": 1,
-        "code_formula": 0.75,
-        "factual": 0.75,
         "followup": 1,
+        "synthesis": 0.75,
         "conceptual": 1,
-        "synthesis": 0.75
+        "code_formula": 0.75,
+        "factual": 0.75
       }
     },
     "agentic": {
@@ -124,18 +124,18 @@
       },
       "by_category": {
         "unanswerable": 1,
-        "code_formula": 0.75,
-        "factual": 0.75,
         "followup": 1,
+        "synthesis": 0.75,
         "conceptual": 1,
-        "synthesis": 0.75
+        "code_formula": 0.75,
+        "factual": 0.75
       }
     },
     "okf": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.5833333333333334,
+        "mean": 0.875,
         "n": 24
       },
       "citation_validity": {
@@ -185,18 +185,18 @@
       },
       "by_category": {
         "unanswerable": 1,
-        "code_formula": 0.5,
-        "factual": 0.5,
-        "followup": 0.5,
-        "conceptual": 0.5,
-        "synthesis": 0.5
+        "followup": 0.75,
+        "synthesis": 1,
+        "conceptual": 1,
+        "code_formula": 0.75,
+        "factual": 0.75
       }
     },
     "no_retrieval": {
       "runs": 24,
       "failures": 0,
       "correctness": {
-        "mean": 0.25,
+        "mean": 0.75,
         "n": 24
       },
       "citation_validity": {
@@ -246,11 +246,11 @@
       },
       "by_category": {
         "unanswerable": 1,
-        "code_formula": 0,
-        "factual": 0,
         "followup": 0.5,
-        "conceptual": 0,
-        "synthesis": 0
+        "synthesis": 1,
+        "conceptual": 1,
+        "code_formula": 0.25,
+        "factual": 0.75
       }
     },
     "gold_evidence": {
@@ -307,11 +307,11 @@
       },
       "by_category": {
         "unanswerable": 1,
-        "code_formula": 0.5,
-        "factual": 1,
         "followup": 0.5,
+        "synthesis": 1,
         "conceptual": 1,
-        "synthesis": 1
+        "code_formula": 0.5,
+        "factual": 1
       }
     }
   },
@@ -323,9 +323,9 @@
       "paired_questions": 24
     },
     "okf-minus-rag": {
-      "difference": -0.2916666666666667,
-      "lower": -0.5,
-      "upper": -0.041666666666666664,
+      "difference": 0,
+      "lower": -0.16666666666666666,
+      "upper": 0.16666666666666666,
       "paired_questions": 24
     },
     "gold_evidence-minus-rag": {

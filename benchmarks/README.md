@@ -57,7 +57,7 @@ p50/p90/p95. Numeric/vector answers receive deterministic checks, combined with 
 rather than allowing a matching incidental number to establish correctness. Scalar checks
 have a relative tolerance of 1e-6; judge errors and incidental matches still need audit.
 Reviewed unanswerable labels determine correctness from explicit abstention, rather than a
-contradictory semantic-judge vote. Citation support is reported only for answers with citations;
+contradictory semantic-judge vote. Abstention on answerable cases is always incorrect. Citation support is reported only for answers with citations;
 uncited answers and abstentions have a null score. Citation ID validity is syntactic, not a guarantee of support. Passage recall depends on chunk
 boundaries and annotation completeness; it is not semantic recall of all acceptable evidence.
 
@@ -143,7 +143,7 @@ a rerun of a changed configuration needs a new revision, not overwriting prior o
   `development-retrieval-ablation.json`.
   Hybrid remains the implementation default. These figures do not establish answer quality.
 - Revised development generation and scoring completed all 120 runs without failures. The
-  three methods each received estimated correctness 21/24; median times were 7.81 seconds
+  estimated correctness was 21/24 for RAG and agentic, 14/24 for OKF; median times were 7.81 seconds
   RAG, 16.80 agentic and 28.11 OKF. These development estimates are not a final quality ranking.
   The [findings](findings.md) disclose the preserved pilot, grading correction and timing interruption.
 - Real-model public-fixture checks produce cited answers through all three methods. These are

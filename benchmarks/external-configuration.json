@@ -5,8 +5,8 @@
   "implementation_sha256": {
     "knowledge.py": "94f041ceee3f4e696998fd5f8e0a6124cf96f90439f10f8b29dcdb9bded98392",
     "strategies.py": "041984a26d5762f0c569844b55941429aa344e5a267653dc372c43860285c39b",
-    "evaluation.py": "ad1e94aef8ac2a6239e49276b773b5a26341d0aaec92da7cd304f1f07817f059",
-    "evaluation_external.py": "e3e02825cac0fec4906e385d8c8ab7cb7c8c7f989175953394d5fcf2e8f63789",
+    "evaluation.py": "3bc6afb24d56e9e9128340773e01d73ea3293bdcb1ac5de10354e7e0f78e3c43",
+    "evaluation_external.py": "06ecc65aea7ad53743044c19f30191f2d1febf14168a00f26c2d2f1b8c99339b",
     "retrieval/src/main.rs": "8ceb5382802079d196ee4fb5496c0119ee174dba68a64d76a9db6cfc1fca2d94",
     "requirements-eval.txt": "4895213916f7b334ea070c5f3fc63d9bf47a1a5288281e528d9eb80c149451e1"
   },
@@ -21,5 +21,6 @@
   "temperature": 0,
   "thinking": false,
   "output_limit": 1024,
-  "timing": "serial local runs; method latency excludes the separate judge call"
+  "timing": "serial local runs; method latency excludes the separate judge call",
+  "grading_revision": "v2.2-reviewed-abstention-policy"
 }

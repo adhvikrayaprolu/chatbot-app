@@ -152,7 +152,8 @@ def test_judge_failure_is_recorded_without_losing_the_next_run(tmp_path, monkeyp
     assert records[1]["correctness"] == 1
 
 
-def test_reviewed_unanswerable_label_overrules_a_contradictory_judge(tmp_path, monkeypatch):
+@pytest.mark.parametrize("unanswerable,vote,expected", [(True, False, 1), (False, True, 0)])
+def test_reviewed_abstention_policy_overrules_a_contradictory_judge(tmp_path, monkeypatch, unanswerable, vote, expected):
     private = tmp_path / "private"
     private.mkdir()
     monkeypatch.setattr(evaluation, "PRIVATE", private)
@@ -165,9 +166,9 @@ def test_reviewed_unanswerable_label_overrules_a_contradictory_judge(tmp_path, m
         [
             {
                 "id": "missing",
-                "reference": "Insufficient evidence in this document.",
+                "reference": "Insufficient evidence in this document." if unanswerable else "Threads synchronize within a block.",
                 "gold_ids": [],
-                "unanswerable": True,
+                "unanswerable": unanswerable,
             }
         ],
     )
@@ -194,14 +195,14 @@ def test_reviewed_unanswerable_label_overrules_a_contradictory_judge(tmp_path, m
     monkeypatch.setattr(
         evaluation,
         "decision",
-        lambda *args: ({"correct": False, "supported": False, "reason": "Contradictory verdict"}, {}),
+        lambda *args: ({"correct": vote, "supported": False, "reason": "Contradictory verdict"}, {}),
     )
     fake = type("Knowledge", (), {"models": None, "context": lambda self, evidence: ""})()
     evaluation.score_runs(fake, "document", "development")
     scored = evaluation.rows(private / "development-scores.jsonl")[0]
-    assert scored["correctness"] == 1
+    assert scored["correctness"] == expected
     assert scored["citation_support"] is None
-    assert scored["abstention_accuracy"] == 1
+    assert scored["abstention_accuracy"] == int(unanswerable)
 
 
 def test_generation_export_excludes_private_content_and_preserves_failure_timing(tmp_path, monkeypatch):

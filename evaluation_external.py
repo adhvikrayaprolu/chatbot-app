@@ -223,7 +223,7 @@ def qasper(k):
                     result=result,
                     correctness=int(result["reply"].startswith("Insufficient evidence"))
                     if q["unanswerable"]
-                    else int(judged["correct"]),
+                    else int(not result["reply"].startswith("Insufficient evidence") and judged["correct"]),
                     citation_support=int(judged["supported"]) if result["citations"] else None,
                     paragraph_recall=recall,
                     abstention_accuracy=int(result["reply"].startswith("Insufficient evidence") == q["unanswerable"]),
