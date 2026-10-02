@@ -89,7 +89,8 @@ class LocalModels:
                 if not isinstance(text, str) or not text.strip():
                     raise ProviderError('Model returned an empty final answer.', 502)
             return {'text': text, 'input_tokens': usage.get('input_tokens', 0),
-                    'output_tokens': usage.get('output_tokens', 0)}
+                    'output_tokens': usage.get('output_tokens', 0),
+                    'load_seconds': (response.response_metadata or {}).get('load_duration', 0) / 1e9}
         except Exception as error:
             raise ProviderError('Local generation failed. Check Ollama/model readiness and retry.', 503) from error
 
@@ -305,7 +306,7 @@ class Knowledge:
             raise ValueError('Unsupported answering method')
         self.ready(owner, did)
         start = time.perf_counter()
-        acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'steps': []}
+        acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'load_seconds': 0, 'steps': []}
         if evidence is not None:
             hits = evidence
         elif method == 'rag':
@@ -344,7 +345,8 @@ class Knowledge:
                 'evidence': selected, 'evidence_tokens': count, 'input_tokens': result['input_tokens'] + acquired['input_tokens'],
                 'output_tokens': result['output_tokens'] + acquired['output_tokens'], 'seconds': time.perf_counter() - start,
                 'steps': acquired['steps'] + ['Generated grounded answer' if selected else 'Abstained: insufficient evidence', 'Validated citation IDs'],
-                'model_calls': acquired['calls'] + int(bool(selected))}
+                'model_calls': acquired['calls'] + int(bool(selected)),
+                'load_seconds': result.get('load_seconds', 0) + acquired.get('load_seconds', 0)}
 
     @staticmethod
     def context(hits: list[dict]) -> str:

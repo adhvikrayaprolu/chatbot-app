@@ -8,6 +8,9 @@ from urllib.parse import urlparse
 
 
 def mask(*, data: Any, **kwargs: dict[str, Any]) -> Any:
+    allowed = {'seconds', 'input_tokens', 'output_tokens', 'model_calls', 'evidence_tokens', 'load_seconds'}
+    if isinstance(data, dict):
+        return {key:value for key,value in data.items() if key in allowed and type(value) in (int, float)}
     return '[content omitted]'
 
 
@@ -34,7 +37,7 @@ def traced(name: str, kind: str = 'span'):
             with observer.start_as_current_observation(name=name, as_type=kind) as span:
                 result = function(*args, **kwargs)
                 if isinstance(result, dict):
-                    metrics = {key: result[key] for key in ('seconds', 'input_tokens', 'output_tokens', 'model_calls', 'evidence_tokens') if key in result}
+                    metrics = {key: result[key] for key in ('seconds', 'input_tokens', 'output_tokens', 'model_calls', 'evidence_tokens', 'load_seconds') if key in result}
                     span.update(metadata=metrics)
                     result['trace_id'] = span.trace_id
                 return result

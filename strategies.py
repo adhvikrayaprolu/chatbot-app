@@ -28,6 +28,7 @@ class State(TypedDict):
     evidence: list[dict]
     steps: list[str]
     sufficient: bool
+    load_seconds: float
 
 
 def selection_schema(ids: list[str], minimum: int = 0, maximum: int = 5) -> dict:
@@ -47,6 +48,7 @@ def decision(models, instruction: str, data: str, schema: dict) -> tuple[dict, d
 
 
 def add_usage(state: Any, response: dict):
+    state['load_seconds'] = state.get('load_seconds', 0) + response.get('load_seconds', 0)
     state['calls'] += 1
     state['input_tokens'] += response['input_tokens']
     state['output_tokens'] += response['output_tokens']
@@ -98,7 +100,7 @@ def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
     recent = '\n'.join(m['role'] + ': ' + m['content'] for m in history[-4:])
     recent = k.tokens.split(recent, 1024, 0)[0] if recent else ''
     result = graph.compile().invoke({'question': question, 'query': '', 'history': recent, 'rounds': 0, 'calls': 0,
-                                    'input_tokens': 0, 'output_tokens': 0, 'evidence': [], 'steps': [], 'sufficient': False},
+                                    'input_tokens': 0, 'output_tokens': 0, 'load_seconds': 0, 'evidence': [], 'steps': [], 'sufficient': False},
                                    {'recursion_limit': 10})
     if not result['sufficient']:
         result['evidence'] = []
