@@ -79,7 +79,7 @@ class Store:
             self._owned(db, owner, cid)
             db.execute('DELETE FROM conversations WHERE id=? AND owner=?', (cid, owner))
 
-    def append_turn(self, owner, cid, version, message, reply):
+    def append_turn(self, owner, cid, version, message, reply, metadata=None):
         with self.connect() as db:
             result = db.execute(
                 'UPDATE conversations SET version=version+1 WHERE id=? AND owner=? AND version=?',
@@ -88,3 +88,6 @@ class Store:
                 raise Conflict('Conversation changed while replying; reload and try again.')
             db.executemany('INSERT INTO messages(conversation_id,role,content) VALUES(?,?,?)',
                            [(cid, 'user', message), (cid, 'assistant', reply)])
+            if metadata:
+                import json
+                db.execute('INSERT INTO answer_metadata VALUES(?,?,?)', (cid, version + 1, json.dumps(metadata)))

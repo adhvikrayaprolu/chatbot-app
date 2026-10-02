@@ -1,6 +1,6 @@
 """Cookie-owned conversations for a local chatbot; no global message history."""
-import os
 import fcntl
+import os
 import secrets
 from pathlib import Path
 
@@ -8,11 +8,12 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 
-from gpt_handler import DemoProvider, OpenAIProvider, ProviderError, SYSTEM_PROMPT
-from storage import Store, NotFound, Conflict
+from gpt_handler import SYSTEM_PROMPT, DemoProvider, OpenAIProvider, ProviderError
+from knowledge import Knowledge
+from storage import Conflict, NotFound, Store
 
 
-def create_app(config=None, provider=None):
+def create_app(config=None, provider=None, knowledge=None):
     load_dotenv(Path(__file__).parent / '.env')
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
@@ -21,7 +22,7 @@ def create_app(config=None, provider=None):
         CHAT_PROVIDER=os.getenv('CHAT_PROVIDER', 'demo'),
         OPENAI_API_KEY=os.getenv('OPENAI_API_KEY'),
         OPENAI_MODEL=os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
-        MAX_CONTENT_LENGTH=16 * 1024,
+        MAX_CONTENT_LENGTH=64 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
         SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE', 'false').lower() == 'true',
     )
@@ -49,9 +50,13 @@ def create_app(config=None, provider=None):
     app.extensions['provider'] = provider or (DemoProvider() if mode == 'demo' else
         OpenAIProvider(app.config['OPENAI_API_KEY'], app.config['OPENAI_MODEL']))
     app.extensions['store'] = store
+    corpus = knowledge or Knowledge(store, Path(app.instance_path) / 'documents')
+    app.extensions['knowledge'] = corpus
 
     @app.before_request
     def identify_owner():
+        if request.path != '/api/documents' and (request.content_length or 0) > 16 * 1024:
+            return jsonify(error='Request is too large.'), 413
         if 'owner' not in session:
             session['owner'] = secrets.token_hex(32)
             session['csrf'] = secrets.token_hex(32)
@@ -132,6 +137,46 @@ def create_app(config=None, provider=None):
         store.delete(session['owner'], cid)
         return '', 204
 
+    @app.get('/api/documents')
+    def documents():
+        return jsonify(documents=corpus.list_documents(session['owner']))
+
+    @app.post('/api/documents')
+    def import_document():
+        file = request.files.get('file')
+        if not file or not file.filename or not file.filename.lower().endswith('.pdf'):
+            from werkzeug.exceptions import BadRequest
+            raise BadRequest('Select a PDF file.')
+        did = corpus.import_file(session['owner'], file, file.filename)
+        return jsonify(corpus.document(session['owner'], did)), 202
+
+    @app.post('/api/documents/demo')
+    def demo_document():
+        did = corpus.import_file(session['owner'], Path(__file__).parent / 'fixtures/gpu-guide.md',
+                                 'GPU Study Notes (original demo)', markdown=True)
+        return jsonify(corpus.document(session['owner'], did)), 202
+
+    @app.get('/api/documents/<did>')
+    def document_status(did):
+        return jsonify(corpus.document(session['owner'], did))
+
+    @app.delete('/api/documents/<did>')
+    def delete_document(did):
+        corpus.delete(session['owner'], did)
+        return '', 204
+
+    @app.post('/api/documents/<did>/retry')
+    def retry_document(did):
+        corpus.retry(session['owner'], did)
+        return jsonify(corpus.document(session['owner'], did)), 202
+
+    @app.get('/api/documents/<did>/sources/<sid>')
+    def source(did, sid):
+        for chunk in corpus.chunks(session['owner'], did):
+            if chunk['id'] == sid:
+                return jsonify(chunk)
+        raise NotFound()
+
     @app.post('/chat')
     def chat():
         data = payload()
@@ -143,11 +188,21 @@ def create_app(config=None, provider=None):
         messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
         messages += conversation['messages'][-20:]
         messages.append({'role': 'user', 'content': message})
-        reply = app.extensions['provider'].reply(messages)
+        grounded = None
+        if data.get('document_id'):
+            did = text(data, 'document_id', 64)
+            method = data.get('method', 'rag')
+            if method not in ('rag', 'agentic', 'okf'):
+                from werkzeug.exceptions import BadRequest
+                raise BadRequest('Unknown answering method.')
+            grounded = corpus.answer(session['owner'], did, message, conversation['messages'], method)
+            reply = grounded['reply']
+        else:
+            reply = app.extensions['provider'].reply(messages)
         if not isinstance(reply, str) or not reply.strip() or len(reply) > 10000:
             raise ProviderError('The provider returned an invalid reply.', 502)
-        store.append_turn(session['owner'], cid, conversation['version'], message, reply)
-        return jsonify(reply=reply, conversation_id=cid)
+        store.append_turn(session['owner'], cid, conversation['version'], message, reply, grounded)
+        return jsonify(reply=reply, conversation_id=cid, **({'grounded': grounded} if grounded else {}))
 
     return app
 
