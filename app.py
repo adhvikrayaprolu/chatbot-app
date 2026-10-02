@@ -1,5 +1,6 @@
 """Cookie-owned conversations for a local chatbot; no global message history."""
 import fcntl
+import json
 import os
 import secrets
 from pathlib import Path
@@ -126,7 +127,11 @@ def create_app(config=None, provider=None, knowledge=None):
 
     @app.get('/api/conversations/<cid>')
     def get_conversation(cid):
-        return jsonify(store.get(session['owner'], cid))
+        conversation = store.get(session['owner'], cid)
+        with store.connect() as db:
+            conversation['grounded_turns'] = {str(r['version']): json.loads(r['data']) for r in db.execute(
+                'SELECT version,data FROM answer_metadata WHERE conversation_id=?', (cid,))}
+        return jsonify(conversation)
 
     @app.patch('/api/conversations/<cid>')
     def rename_conversation(cid):
@@ -176,6 +181,19 @@ def create_app(config=None, provider=None, knowledge=None):
             if chunk['id'] == sid:
                 return jsonify(chunk)
         raise NotFound()
+
+    @app.get('/api/comparisons')
+    def list_comparisons():
+        return jsonify(comparisons=corpus.list_comparisons(session['owner']))
+
+    @app.post('/api/comparisons')
+    def compare_methods():
+        data = payload()
+        return jsonify(corpus.compare(session['owner'], text(data, 'document_id', 64), text(data, 'question', 2000))), 201
+
+    @app.get('/api/comparisons/<comparison_id>')
+    def comparison(comparison_id):
+        return jsonify(corpus.comparison(session['owner'], comparison_id))
 
     @app.post('/chat')
     def chat():

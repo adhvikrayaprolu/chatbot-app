@@ -27,6 +27,18 @@ jobs:
       - run: python -m pytest -q
       - run: make check
       - run: python -m compileall -q app.py gpt_handler.py storage.py knowledge.py
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pip install -r requirements-browser.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: cargo build --locked --manifest-path retrieval/Cargo.toml
+      - run: RUN_BROWSER=1 python -m pytest -q tests/test_browser.py
   docker:
     runs-on: ubuntu-latest
     steps:
