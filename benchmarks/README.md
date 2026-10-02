@@ -126,9 +126,16 @@ packages (they are not needed by the application or offline CI):
 Private reference annotations are specific to the selected textbook and are not distributed.
 A new user's document requires new source-backed annotations; public questions alone cannot
 recreate gold-evidence results. The public original GPU fixture supports application/CI checks
-without this copyrighted corpus. Interrupted commands resume from atomic journals. After review and freezing,
-`python scripts/run_evaluations.py --phase all` coordinates the commands serially and
-records phase progress under ignored `instance/benchmarks/`; it never publishes or merges. Do not run
+without this copyrighted corpus. Interrupted commands resume from atomic journals. Model-service loss exits with code 75 and
+pauses without consuming the affected case; restore the service and rerun the same command.
+Genuine failures with a healthy service stay recorded. `interrupted-v2-*` retains the invalid
+service-outage attempt, while the replacement execution is identified in the frozen manifest. After review and freezing,
+`python scripts/run_evaluations.py --detach --phase all` coordinates the commands serially and
+records phase progress under ignored `instance/benchmarks/`; it never publishes or merges.
+The detached coordinator survives closing its terminal and uses the serial execution lock.
+Keep Ollama running independently (for example through its native background application);
+closing a terminal-bound model service pauses evaluation. Inspect `pipeline-status.json` and
+`pipeline.log` for progress rather than treating process launch as benchmark completion. Do not run
 parallel measured experiments on the same machine. Failed generation records stay failures;
 a rerun of a changed configuration needs a new revision, not overwriting prior outcomes.
 

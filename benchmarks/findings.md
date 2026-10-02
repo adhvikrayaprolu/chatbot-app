@@ -100,11 +100,21 @@ generation functions were unchanged; hashes and the correction are recorded in t
 QASPER uses the same labeled-unanswerable rule. This disclosure limits any claim that the
 entire grading implementation was frozen before the held-out generation began.
 
-The local evaluation processes ended after 217 held-out generation records. Resumption keeps
-those records; a restarted service can introduce model loading time on its first subsequent
-calls. Load times remain recorded separately. No consistent cold/warm timing or speedup claim
-is made across that interruption. Full held-out scoring, external experiments and audit remain
-incomplete.
+The local processes initially ended after 217 held-out records. A later terminal-bound
+service loss caused the runner to advance through the remaining prompts: the interrupted
+attempt contains 312 completed generations and 1,128 failures. Its 1,440-record count is
+**not a valid completed comparison**. Metadata is preserved as `interrupted-v2-*`; the complete
+journal and its configuration remain private. None of those results is silently counted in
+the replacement comparison.
+
+Execution revision `textbook-v3-outage-guard` restarts held-out generation with unchanged
+source, questions, annotations, models, prompts, budgets, seed and grading policy. Metadata
+health checks occur outside answer timing; service loss pauses without consuming a case,
+while failures with a healthy service remain recorded. Textbook scoring, QASPER and RAGBench
+also pause on service loss. Inference and coordination run independently of temporary tool
+terminals. Development results retain their own `development-configuration.json`. Held-out
+answer content was not inspected or used for tuning. Full scoring, external experiments and
+the separate audit remain incomplete.
 
 ## Evaluation status
 

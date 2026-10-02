@@ -51,8 +51,8 @@
     "retrieval/src/main.rs": "8ceb5382802079d196ee4fb5496c0119ee174dba68a64d76a9db6cfc1fca2d94",
     "requirements.txt": "39909d05104de4420f146e6fbca0d080d113363b260d54049a2fa5296a4c730a",
     "requirements-eval.txt": "4895213916f7b334ea070c5f3fc63d9bf47a1a5288281e528d9eb80c149451e1",
-    "evaluation.py": "7e1b9bfc997fc1895c067c16ca1b27ec10c1d3509f0a30cde8b22958896b5efd",
-    "evaluation_external.py": "04d208d31b5c8250606188b1781c75c1eb230f3269f614f511d5dd240a2a7d41"
+    "evaluation.py": "3bc6afb24d56e9e9128340773e01d73ea3293bdcb1ac5de10354e7e0f78e3c43",
+    "evaluation_external.py": "06ecc65aea7ad53743044c19f30191f2d1febf14168a00f26c2d2f1b8c99339b"
   },
   "python": "3.13.1",
   "machine": "arm64",
@@ -90,13 +90,11 @@
   },
   "scoring": "reviewed unanswerable labels determine abstention correctness; answerable cases require non-abstention, semantic correctness AND numeric match when applicable; citation support applies only to cited answers; Ragas faithfulness and response relevance with fixed conversation context, strictness=1, max_retries=1",
   "status": "frozen",
-  "frozen_at": 1790978618.373066,
+  "frozen_at": 1790966678.301173,
   "generation_frozen_at": 1790929484.179754,
   "generation_functions_sha256": {
     "baseline": "fa2dba00616a29a5b745e87cec119be71fca8a78c3c8887eec18158053fffee6",
-    "run": "ff31199484cceba4a20f917a5c5c5133868156c398ad37b1d8fa73599c23ddb1"
+    "run": "b6ba1645ffb30ffb393ea21eecfcdf5506f61da08ac0598c24442d252ba0a5a4"
   },
-  "grading_correction": "Development-only corrections: reviewed unanswerable labels determine abstention correctness; abstention on answerable questions is incorrect; uncited answers excluded from citation-support denominator. No held-out outputs inspected; generation functions, corpus, data, prompts, models and budgets unchanged. v2.0 and v2.1 grader artifacts preserved.",
-  "execution_revision": "textbook-v3-outage-guard",
-  "execution_change": "Replacement held-out execution after local service loss invalidated v2; every case has a model-health boundary. Same source/questions/annotations/models/prompts/budgets/seed/grading. No held-out answer content inspected for tuning. Development results retain development-configuration.json."
+  "grading_correction": "Development-only corrections: reviewed unanswerable labels determine abstention correctness; abstention on answerable questions is incorrect; uncited answers excluded from citation-support denominator. No held-out outputs inspected; generation functions, corpus, data, prompts, models and budgets unchanged. v2.0 and v2.1 grader artifacts preserved."
 }

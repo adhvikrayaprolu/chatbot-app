@@ -5,8 +5,8 @@
   "implementation_sha256": {
     "knowledge.py": "94f041ceee3f4e696998fd5f8e0a6124cf96f90439f10f8b29dcdb9bded98392",
     "strategies.py": "041984a26d5762f0c569844b55941429aa344e5a267653dc372c43860285c39b",
-    "evaluation.py": "3bc6afb24d56e9e9128340773e01d73ea3293bdcb1ac5de10354e7e0f78e3c43",
-    "evaluation_external.py": "06ecc65aea7ad53743044c19f30191f2d1febf14168a00f26c2d2f1b8c99339b",
+    "evaluation.py": "7e1b9bfc997fc1895c067c16ca1b27ec10c1d3509f0a30cde8b22958896b5efd",
+    "evaluation_external.py": "04d208d31b5c8250606188b1781c75c1eb230f3269f614f511d5dd240a2a7d41",
     "retrieval/src/main.rs": "8ceb5382802079d196ee4fb5496c0119ee174dba68a64d76a9db6cfc1fca2d94",
     "requirements-eval.txt": "4895213916f7b334ea070c5f3fc63d9bf47a1a5288281e528d9eb80c149451e1"
   },
@@ -22,5 +22,6 @@
   "thinking": false,
   "output_limit": 1024,
   "timing": "serial local runs; method latency excludes the separate judge call",
-  "grading_revision": "v2.2-reviewed-abstention-policy"
+  "grading_revision": "v2.2-reviewed-abstention-policy",
+  "execution_revision": "external-v1-outage-guard"
 }

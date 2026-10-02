@@ -8,6 +8,7 @@ import argparse
 import csv
 import fcntl
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -78,12 +79,36 @@ def export_generations(split):
             writer.writerow(item)
 
 
+
+def launch_detached(phase):
+    """Keep a long run independent of its terminal; the worker still owns the serial lock."""
+    private = ROOT / "instance/benchmarks"
+    private.mkdir(parents=True, exist_ok=True)
+    with (private / "pipeline.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("An evaluation coordinator is already running.") from None
+    command = [sys.executable, "-u", str(Path(__file__).resolve()), "--phase", phase]
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        command = ["caffeinate", "-i", *command]
+    with (private / "pipeline.log").open("ab") as log:
+        process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log,
+                                   stderr=subprocess.STDOUT, start_new_session=True)
+    (private / "detached-launch.json").write_text(json.dumps({"pid": process.pid, "phase": phase}) + "\n")
+    print("Started independent evaluation process", process.pid, "; inspect instance/benchmarks/pipeline-status.json and pipeline.log.")
+
+
 def main():
     private = ROOT / "instance/benchmarks"
     private.mkdir(parents=True, exist_ok=True)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=("development", "heldout", "external", "all"), default="all")
+    parser.add_argument("--detach", action="store_true", help="Run independently of this terminal; inspect private progress/log files.")
     args = parser.parse_args()
+    if args.detach:
+        launch_detached(args.phase)
+        return
     commands = {
         "development": [
             ("evaluation.py", "run", "--split", "development"),
@@ -122,7 +147,7 @@ def main():
                 temporary.replace(state_path)
                 result = subprocess.run([sys.executable, *command], cwd=ROOT)
                 state.update(
-                    status="complete" if result.returncode == 0 else "failed",
+                    status="complete" if result.returncode == 0 else "paused" if result.returncode == 75 else "failed",
                     completed_at=time.time(),
                     exit_code=result.returncode,
                 )

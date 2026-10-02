@@ -103,6 +103,7 @@ def test_judge_failure_is_recorded_without_losing_the_next_run(tmp_path, monkeyp
     private.mkdir()
     monkeypatch.setattr(evaluation, "PRIVATE", private)
     monkeypatch.setattr(evaluation, "validate_manifest", lambda *args: {})
+    monkeypatch.setattr(evaluation, "require_service", lambda *args: None)
     monkeypatch.setattr(
         evaluation,
         "questions",
@@ -158,6 +159,7 @@ def test_reviewed_abstention_policy_overrules_a_contradictory_judge(tmp_path, mo
     private.mkdir()
     monkeypatch.setattr(evaluation, "PRIVATE", private)
     monkeypatch.setattr(evaluation, "validate_manifest", lambda *args: {})
+    monkeypatch.setattr(evaluation, "require_service", lambda *args: None)
     monkeypatch.setattr(
         evaluation, "questions", lambda split: [{"id": "missing", "question": "A private live value?", "history": []}]
     )
@@ -231,3 +233,132 @@ def test_generation_export_excludes_private_content_and_preserves_failure_timing
     assert summary["status"] == "incomplete"
     assert summary["methods"]["rag"]["failed_latency"]["p50"] == 12
     assert summary["methods"]["rag"]["complete_latency"]["p50"] == 3
+
+
+class AvailableModels:
+    model = "chat"
+    embedding = "embed"
+    available = True
+
+    def digest(self, name):
+        if not self.available:
+            raise ConnectionError("Service stopped")
+        return name
+
+
+@pytest.mark.parametrize("service_lost", [True, False])
+def test_generation_outage_pauses_without_consuming_cases_but_healthy_failure_is_recorded(tmp_path, monkeypatch, service_lost):
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(evaluation, "PRIVATE", private)
+    monkeypatch.setattr(evaluation, "METHODS", ["rag"])
+    monkeypatch.setattr(evaluation, "validate_manifest", lambda *args: {})
+    monkeypatch.setattr(evaluation, "questions", lambda split: [{"id": key, "category": "factual", "question": "Question?", "history": []} for key in ("a", "b")])
+    evaluation.save(private / "annotations.json", [{"id": key, "gold_ids": []} for key in ("a", "b")])
+    models = AvailableModels()
+    fake = type("Knowledge", (), {"models": models, "chunks": lambda *args: []})()
+    calls = []
+
+    def answer(*args):
+        calls.append(args[2]["id"])
+        if len(calls) == 1:
+            models.available = not service_lost
+            raise ValueError("Inference failed")
+        return {"reply": "A final answer", "seconds": 1}
+
+    monkeypatch.setattr(evaluation, "baseline", answer)
+    if service_lost:
+        with pytest.raises(evaluation.EvaluationInterrupted):
+            evaluation.run(fake, "document", "development")
+        assert len(calls) == 1
+        first = calls[0]
+        assert not (private / "development-runs.jsonl").exists()
+        models.available = True
+        evaluation.run(fake, "document", "development")
+        assert len(calls) == 3
+        assert calls[:2] == [first, first]
+    else:
+        evaluation.run(fake, "document", "development")
+    records = evaluation.rows(private / "development-runs.jsonl")
+    assert sorted(r["id"] for r in records) == ["a", "b"]
+    assert [r["status"] for r in records] == (["complete", "complete"] if service_lost else ["failed", "complete"])
+    evaluation.run(fake, "document", "development")
+    assert len(evaluation.rows(private / "development-runs.jsonl")) == 2
+
+
+def test_scoring_service_loss_does_not_persist_a_false_judge_failure(tmp_path, monkeypatch):
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(evaluation, "PRIVATE", private)
+    monkeypatch.setattr(evaluation, "validate_manifest", lambda *args: {})
+    monkeypatch.setattr(evaluation, "questions", lambda split: [{"id": "a", "question": "Unavailable?", "history": []}])
+    evaluation.save(private / "annotations.json", [{"id": "a", "reference": "Insufficient evidence", "gold_ids": [], "unanswerable": True}])
+    evaluation.journal(private / "development-runs.jsonl", {
+        "id": "a", "category": "unanswerable", "method": "rag", "repeat": 0, "status": "complete",
+        "result": {"reply": "Insufficient evidence in this document.", "evidence": [], "seconds": 1,
+                   "input_tokens": 0, "output_tokens": 0, "model_calls": 1, "evidence_tokens": 0, "load_seconds": 0},
+    })
+    models = AvailableModels()
+    fake = type("Knowledge", (), {"models": models, "context": lambda *args: ""})()
+
+    def judge(*args):
+        models.available = False
+        raise ConnectionError("Service stopped during judging")
+
+    monkeypatch.setattr(evaluation, "decision", judge)
+    with pytest.raises(evaluation.EvaluationInterrupted):
+        evaluation.score_runs(fake, "document", "development")
+    assert not (private / "development-scores.jsonl").exists()
+    models.available = True
+    monkeypatch.setattr(evaluation, "decision", lambda *args: ({"correct": True, "supported": False}, {}))
+    evaluation.score_runs(fake, "document", "development")
+    assert evaluation.rows(private / "development-scores.jsonl")[0]["score_status"] == "complete"
+
+
+@pytest.mark.parametrize("probe", ["qasper", "calibrate"])
+def test_external_service_outage_pauses_without_marking_example_failed(tmp_path, monkeypatch, probe):
+    import evaluation_external as external
+
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(external, "PRIVATE", private)
+    monkeypatch.setattr(external, "validate_external", lambda *args: None)
+    models = AvailableModels()
+
+    def fail_answer(*args, **kwargs):
+        models.available = False
+        raise ConnectionError("Inference stopped")
+
+    async def fail_scoring(*args):
+        models.available = False
+        raise ConnectionError("Judge stopped")
+
+    fake = type("Knowledge", (), {"models": models, "answer": fail_answer})()
+    if probe == "qasper":
+        evaluation.save(private / "qasper-dev.json", {})
+        evaluation.save(private / "qasper-imports.json", {"paper": "document"})
+        evaluation.save(private / "qasper-sample.json", [{"paper_id": "paper", "question_id": "q", "question": "Question?"}])
+        journal = private / "qasper-runs.jsonl"
+    else:
+        monkeypatch.setattr(external, "ragas_score", fail_scoring)
+        evaluation.save(private / "ragbench-sample.json", [{"id": "x", "adherence_score": 1, "relevance_score": 1,
+                                                          "documents": ["Original fixture"], "response": "Answer", "question": "Question?"}])
+        journal = private / "ragbench-calibration.jsonl"
+    with pytest.raises(evaluation.EvaluationInterrupted):
+        getattr(external, probe)(fake)
+    assert not journal.exists()
+
+
+def test_detached_launcher_refuses_an_existing_coordinator(tmp_path, monkeypatch):
+    import fcntl
+
+    from scripts import run_evaluations as coordinator
+
+    private = tmp_path / "instance/benchmarks"
+    private.mkdir(parents=True)
+    monkeypatch.setattr(coordinator, "ROOT", tmp_path)
+    with (private / "pipeline.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(SystemExit, match="already running"):
+            coordinator.launch_detached("all")
+    assert not (private / "detached-launch.json").exists()

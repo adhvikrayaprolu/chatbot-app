@@ -1,1 +1,1 @@
-id,category,method,repeat,status,seconds,input_tokens,output_tokens,model_calls,evidence_tokens,load_seconds,score_status,judge_error,evidence_recall,citation_validity,citation_support,correctness,abstention_accuracy,numeric,faithfulness,relevance,ragas_error
+id,category,method,repeat,status,seconds,input_tokens,output_tokens,model_calls,evidence_tokens,load_seconds,score_status,grading_revision,judge_error,evidence_recall,citation_validity,citation_support,correctness,abstention_accuracy,numeric,faithfulness,relevance,ragas_error

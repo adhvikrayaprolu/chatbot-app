@@ -19,7 +19,21 @@ from typing import Any
 
 import httpx
 
-from evaluation import JUDGE, PRIVATE, PUBLIC, SEED, decision, digest, journal, knowledge, ragas_score, rows, save
+from evaluation import (
+    JUDGE,
+    PRIVATE,
+    PUBLIC,
+    SEED,
+    EvaluationInterrupted,
+    decision,
+    digest,
+    journal,
+    knowledge,
+    ragas_score,
+    require_service,
+    rows,
+    save,
+)
 from knowledge import METHODS
 
 RAGBENCH_REVISION = "97808f3e5fd16ede40bbff6c2949af8139b2eb7b"
@@ -170,6 +184,7 @@ def validate_external(k):
 
 
 def qasper(k):
+    require_service(k)
     validate_external(k)
     papers = json.loads((PRIVATE / "qasper-dev.json").read_text())
     path = PRIVATE / "qasper-runs.jsonl"
@@ -178,6 +193,7 @@ def qasper(k):
         json.loads((PRIVATE / "qasper-imports.json").read_text()) if (PRIVATE / "qasper-imports.json").exists() else {}
     )
     for q in json.loads((PRIVATE / "qasper-sample.json").read_text()):
+        require_service(k)
         # Separate evaluation owners bypass the per-browser ten-document limit while retaining ownership checks.
         owner = "qasper:" + q["paper_id"]
         did = imported.get(q["paper_id"])
@@ -197,6 +213,7 @@ def qasper(k):
         for method in methods:
             if (q["question_id"], method) in existing:
                 continue
+            require_service(k)
             record = {"question_id": q["question_id"], "paper_id": q["paper_id"], "method": method}
             try:
                 result = k.answer(owner, did, q["question"], method=method)
@@ -229,6 +246,7 @@ def qasper(k):
                     abstention_accuracy=int(result["reply"].startswith("Insufficient evidence") == q["unanswerable"]),
                 )
             except Exception as error:
+                require_service(k)
                 record.update(status="failed", error=type(error).__name__)
             journal(path, record)
             print("QASPER", q["question_id"], method, record["status"], flush=True)
@@ -239,12 +257,14 @@ def re_space(text):
 
 
 def calibrate(k):
+    require_service(k)
     validate_external(k)
     path = PRIVATE / "ragbench-calibration.jsonl"
     existing = {r["id"] for r in rows(path)}
     for sample in json.loads((PRIVATE / "ragbench-sample.json").read_text()):
         if sample["id"] in existing:
             continue
+        require_service(k)
         record = {
             "id": sample["id"],
             "adherence_label": float(sample["adherence_score"]),
@@ -276,6 +296,7 @@ def calibrate(k):
             record["context_relevance"] = len(set(selected["ids"])) / len(sentences) if sentences else None
             record["status"] = "complete"
         except Exception as error:
+            require_service(k)
             record.update(status="failed", error=type(error).__name__)
         record["seconds"] = time.perf_counter() - start
         journal(path, record)
@@ -393,4 +414,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except EvaluationInterrupted as error:
+        print(str(error), flush=True)
+        raise SystemExit(75) from None

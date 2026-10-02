@@ -49,6 +49,19 @@ JUDGE = {
 }
 
 
+
+class EvaluationInterrupted(RuntimeError):
+    """Infrastructure loss pauses the case; it is not an answer-quality failure."""
+
+
+def require_service(k):
+    try:
+        k.models.digest(k.models.model)
+        k.models.digest(k.models.embedding)
+    except Exception as error:
+        raise EvaluationInterrupted("Local models unavailable; resume this execution after restoring Ollama.") from error
+
+
 def read(path):
     return json.loads(Path(path).read_text())
 
@@ -254,6 +267,7 @@ def baseline(k, did, q, gold, method):
 
 
 def run(k, did, split):
+    require_service(k)
     validate_manifest(k, did)
     annotations = {a["id"]: a for a in read(PRIVATE / "annotations.json")}
     chunks = {c["id"]: c for c in k.chunks("local-evaluation", did)}
@@ -269,12 +283,14 @@ def run(k, did, split):
     for q, method, repeat in tasks:
         if (q["id"], method, repeat) in complete:
             continue
+        require_service(k)
         record = {"id": q["id"], "category": q["category"], "method": method, "repeat": repeat}
         start = time.perf_counter()
         try:
             result = baseline(k, did, q, [chunks[cid] for cid in annotations[q["id"]]["gold_ids"]], method)
             record.update(status="complete", result=result)
         except Exception as error:
+            require_service(k)
             record.update(status="failed", error=type(error).__name__, seconds=time.perf_counter() - start)
             if hasattr(error, "status"):
                 # Application ProviderError messages are static; retained only in the private journal.
@@ -348,6 +364,7 @@ def latest_scores(records):
 
 
 def score_runs(k, did, split):
+    require_service(k)
     validate_manifest(k, did)
     annotations = {a["id"]: a for a in read(PRIVATE / "annotations.json")}
     qs = {q["id"]: q for q in questions(split)}
@@ -359,6 +376,7 @@ def score_runs(k, did, split):
         key = (r["id"], r["method"], r["repeat"])
         if key in existing:
             continue
+        require_service(k)
         a, q = annotations[r["id"]], qs[r["id"]]
         metrics = {
             "id": r["id"],
@@ -438,6 +456,7 @@ def score_runs(k, did, split):
 
                 if metrics.get("correctness") is not None:
                     score(result["trace_id"], "correctness", metrics["correctness"])
+        require_service(k)
         journal(path, metrics)
         print("scored", key, flush=True)
 
@@ -650,4 +669,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except EvaluationInterrupted as error:
+        print(str(error), flush=True)
+        raise SystemExit(75) from None

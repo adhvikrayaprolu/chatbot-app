@@ -1,0 +1,93 @@
+{
+  "status": "invalidated-service-outage",
+  "expected": 1440,
+  "recorded": 1440,
+  "methods": {
+    "rag": {
+      "recorded": 288,
+      "succeeded": 53,
+      "failed": 235,
+      "complete_latency": {
+        "n": 53,
+        "p50": 9.24212345900014,
+        "p90": 10.908001249888912,
+        "p95": 12.018488416913897
+      },
+      "failed_latency": {
+        "n": 235,
+        "p50": 0.009015500079840422,
+        "p90": 0.009687167126685381,
+        "p95": 0.010251416824758053
+      }
+    },
+    "agentic": {
+      "recorded": 288,
+      "succeeded": 55,
+      "failed": 233,
+      "complete_latency": {
+        "n": 55,
+        "p50": 16.34146154182963,
+        "p90": 20.3488717910368,
+        "p95": 21.416104624979198
+      },
+      "failed_latency": {
+        "n": 233,
+        "p50": 0.020079500041902065,
+        "p90": 0.022492374991998076,
+        "p95": 0.02364129200577736
+      }
+    },
+    "okf": {
+      "recorded": 288,
+      "succeeded": 51,
+      "failed": 237,
+      "complete_latency": {
+        "n": 51,
+        "p50": 29.870314792031422,
+        "p90": 34.58219879097305,
+        "p95": 34.81998887495138
+      },
+      "failed_latency": {
+        "n": 237,
+        "p50": 0.023422667058184743,
+        "p90": 0.026251333067193627,
+        "p95": 0.027074707904830575
+      }
+    },
+    "no_retrieval": {
+      "recorded": 288,
+      "succeeded": 62,
+      "failed": 226,
+      "complete_latency": {
+        "n": 62,
+        "p50": 0.9119241670705378,
+        "p90": 2.305085000116378,
+        "p95": 2.5121110829059035
+      },
+      "failed_latency": {
+        "n": 226,
+        "p50": 0.017874417128041387,
+        "p90": 0.01976279215887189,
+        "p95": 0.020422125002369285
+      }
+    },
+    "gold_evidence": {
+      "recorded": 288,
+      "succeeded": 91,
+      "failed": 197,
+      "complete_latency": {
+        "n": 91,
+        "p50": 8.570798672735691e-05,
+        "p90": 6.338221499929205,
+        "p95": 6.934425916988403
+      },
+      "failed_latency": {
+        "n": 197,
+        "p50": 0.01950083300471306,
+        "p90": 0.021895332960411906,
+        "p95": 0.02330679097212851
+      }
+    }
+  },
+  "note": "All attempts were recorded, but local service loss invalidates this as a completed method comparison. Preserve failures as execution evidence; replacement results are separate."
+}
