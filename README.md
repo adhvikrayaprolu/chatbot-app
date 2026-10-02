@@ -71,3 +71,49 @@ Private artifacts reside in ignored `instance/`. Do not remove this directory if
 history, browser ownership, indexes or cached models/tokenizers. Source deletion removes the private
 corpus and comparisons; already-saved conversation text remains until its conversation is deleted.
 The original public fixture is independently written and safe to share.
+
+## Study methods and comparisons (milestone 2)
+
+Use **Try original GPU notes**, wait for `ready`, and ask “Can a block barrier synchronize
+separate blocks?” Select Standard RAG, Agentic RAG, or OKF navigation. Citation buttons
+open the source passage and its PDF/printed-page provenance. **Compare methods** runs
+three separate experiments and shows time, input/output tokens, model calls and tool steps;
+it never adds comparison answers to the conversation. Execution steps contain tool activity,
+not hidden model reasoning. Imported PDFs and experiment details remain local.
+
+LangChain adapts Ollama; LangGraph explicitly controls query → retrieve → assess transitions.
+The agent gets at most two retrieval rounds (four decision calls plus one answer call).
+OKF is a portable Markdown knowledge format, not a model or a guarantee of better answers.
+This implementation builds lossless, source-backed concepts and linked page-range indexes,
+then navigates root → passage with at most two hops and three model calls. It uses no vector
+search. Bundles declare OKF v0.2, generated provenance and `draft` status; no human verification
+is claimed. All three methods share the same answer instructions and 3,072-token evidence
+budget. The final generator uses qwen3:4b, thinking disabled, temperature 0, 8,192 context,
+and at most 1,024 output tokens. Model and tokenizer digests are recorded for evaluation.
+
+Offline browser verification:
+```sh
+.venv/bin/pip install -r requirements-browser.txt
+.venv/bin/python -m playwright install chromium
+RUN_BROWSER=1 .venv/bin/python -m pytest -q tests/test_browser.py
+```
+The browser test runs real Flask, SQLite and Rust with deterministic fake model responses.
+It needs neither Ollama nor the textbook. CI runs it separately from native/API/container checks.
+
+## Optional local Langfuse
+
+The app works without tracing. To use the separate development observability stack:
+```sh
+.venv/bin/python scripts/setup_observability.py
+docker compose -p chatbot-local-observability --env-file instance/langfuse.env -f compose.langfuse.yaml up -d
+set -a
+. instance/langfuse.env
+set +a
+LANGFUSE_ENABLED=true make dev
+```
+Open http://localhost:3000. The generated ignored file contains the local developer login
+(`study@localhost.test`) and private password. All services except the loopback-bound UI
+are internal. S3Mock is a development object store; this configuration is for local experiments.
+Spans capture numeric operational metadata and omit model inputs, outputs, arguments and
+source content. Cloud endpoints are rejected and LangSmith tracing is disabled explicitly.
+Stop the stack with the same Compose command and `down`; omit `--volumes` to retain its data.

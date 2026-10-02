@@ -1,13 +1,20 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Conversation notebook</title><link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
+<title>Document Intelligence — Study Assistant</title><link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
 <script defer src="{{ url_for('static', filename='chat.js') }}"></script></head>
 <body><div class="workspace">
-<aside aria-label="Conversations"><h1>Conversation notebook</h1><p id="mode">Connecting…</p>
-<button id="newChat">New conversation</button><nav id="conversations" aria-label="Saved conversations"></nav></aside>
+<aside aria-label="Conversations"><h1>Document Intelligence</h1><p id="mode">Connecting…</p>
+<section aria-labelledby="documentsHeading"><h2 id="documentsHeading">Study sources</h2>
+<form id="importForm"><label for="pdfFile">Import a private PDF</label><input id="pdfFile" type="file" accept="application/pdf" required><button id="importPdf">Import PDF</button></form>
+<button id="demoDocument" type="button">Try original GPU notes</button>
+<label for="document">Active document</label><select id="document"><option value="">Ordinary conversation</option></select>
+<p id="documentStatus" role="status" aria-live="polite">Select a source for cited answers.</p>
+<div class="actions"><button id="retryDocument" type="button" disabled>Retry import</button><button id="deleteDocument" type="button" disabled>Remove source</button></div>
+</section><hr><button id="newChat">New conversation</button><nav id="conversations" aria-label="Saved conversations"></nav></aside>
 <main><header><h2 id="title">Choose a conversation</h2><div class="actions"><button id="rename" disabled>Rename</button><button id="delete" disabled>Delete</button></div></header>
 <p id="status" role="status" aria-live="polite"></p><section id="messages" aria-label="Conversation messages"></section>
+<section class="studyControls" aria-label="Answering method"><label for="method">Answer method</label><select id="method"><option value="rag">Standard RAG</option><option value="agentic">Agentic RAG</option><option value="okf">OKF navigation</option></select><button id="compare" type="button" disabled>Compare methods</button><p>Ask once, compare evidence and measured runtime. Comparisons do not change your chat.</p></section>
 <form id="composer"><label for="message">Message</label><div class="compose"><textarea id="message" rows="2" maxlength="2000" placeholder="Ask a question" required></textarea><button id="send" disabled>Send</button></div><small>Enter to send · Shift+Enter for a new line. Replies are displayed as safe plain text.</small></form>
 </main></div>
 <dialog id="renameDialog" aria-labelledby="renameHeading"><form id="renameForm">
@@ -18,4 +25,7 @@
 <dialog id="deleteDialog" aria-labelledby="deleteHeading"><h2 id="deleteHeading">Delete conversation?</h2>
 <p>This removes this conversation and its messages from this local notebook.</p><p id="deleteError" role="alert"></p>
 <div class="actions"><button id="deleteCancel">Cancel</button><button id="deleteConfirm">Delete conversation</button></div></dialog>
+<dialog id="sourceDialog" aria-labelledby="sourceHeading"><h2 id="sourceHeading">Source passage</h2><p id="sourceLocation"></p><pre id="sourceText"></pre><button id="closeSource" type="button">Close source</button></dialog>
+<dialog id="comparisonDialog" aria-labelledby="comparisonHeading"><h2 id="comparisonHeading">Method comparison</h2><p id="comparisonQuestion"></p><div id="comparisonResults"></div><button id="closeComparison" type="button">Close comparison</button></dialog>
+<dialog id="removeDocumentDialog" aria-labelledby="removeDocumentHeading"><h2 id="removeDocumentHeading">Remove this source?</h2><p>The private PDF and index will be removed. Existing chat replies remain until their conversation is deleted.</p><div class="actions"><button id="cancelRemoveDocument" type="button">Cancel</button><button id="confirmRemoveDocument" type="button">Remove source</button></div></dialog>
 </body></html>

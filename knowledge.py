@@ -21,6 +21,7 @@ import httpx
 from pypdf import PdfReader
 
 from gpt_handler import ProviderError
+from observability import traced
 from storage import Conflict, NotFound
 
 ROOT = Path(__file__).parent
@@ -57,19 +58,22 @@ class LocalModels:
                 return model['digest']
         raise ProviderError(f'Local model {name} is not installed.', 503)
 
+    @traced('embed', 'embedding')
     def embed(self, texts: list[str]) -> list[list[float]]:
         return self.request('/api/embed', {'model': self.embedding, 'input': texts, 'truncate': False})['embeddings']
 
+    @traced('generate', 'generation')
     def generate(self, messages: list[dict], schema: dict | None = None) -> dict:
         # LangChain provides the local model adapter; graph control remains explicit.
         from langchain_ollama import ChatOllama
         model: Any = ChatOllama(model=self.model, base_url=self.host, temperature=0, num_ctx=8192,
                            num_predict=1024, reasoning=False, client_kwargs={'timeout': 180})
-        if schema:
-            model = model.bind(format=schema)
+        response_schema = schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
+        model = model.bind(format=response_schema)
         try:
             from langsmith import tracing_context
             safe_messages = [(m['role'], m['content']) for m in messages]
+            safe_messages.insert(0, ('system', 'Return JSON matching this schema: ' + json.dumps(response_schema) + '. Output only the final result, never analysis or thinking.'))
             safe_messages[-1] = (safe_messages[-1][0], safe_messages[-1][1] + '\n/no_think')
             with tracing_context(enabled=False):
                 response = model.invoke(safe_messages)
@@ -79,6 +83,11 @@ class LocalModels:
                 text = text.rsplit('</think>', 1)[1].strip()
             elif '<think>' in text:
                 raise ProviderError('Model did not finish a public answer.', 502)
+            if schema is None:
+                parsed = json.loads(text)
+                text = parsed['answer']
+                if not isinstance(text, str) or not text.strip():
+                    raise ProviderError('Model returned an empty final answer.', 502)
             return {'text': text, 'input_tokens': usage.get('input_tokens', 0),
                     'output_tokens': usage.get('output_tokens', 0)}
         except Exception as error:
@@ -180,6 +189,7 @@ class Knowledge:
             self.jobs[did] = self.worker.submit(self.ingest, did, target)
         return did
 
+    @traced('ingest', 'span')
     def ingest(self, did: str, source: Path):
         start = time.perf_counter()
         metadata: dict[str, Any] = {}
@@ -188,8 +198,22 @@ class Knowledge:
             digest = self.models.digest(self.models.embedding)
             source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
             fingerprint = hashlib.sha256(json.dumps({'source': source_hash, 'embedding': digest, 'chunk': 500, 'overlap': 75,
-                                                     'extraction': 'pypdf-fonttools-v2', 'tokenizer': self.tokens.fingerprint()}, sort_keys=True).encode()).hexdigest()
-            pages = [(1, source.read_text())] if source.suffix == '.md' else [(i + 1, p.extract_text() or '') for i, p in enumerate(PdfReader(source).pages)]
+                                                     'extraction': 'pypdf-outline-v3', 'tokenizer': self.tokens.fingerprint()}, sort_keys=True).encode()).hexdigest()
+            outline: dict[int, list[str]] = {}
+            if source.suffix == '.md':
+                pages = [(1, source.read_text())]
+            else:
+                reader = PdfReader(source)
+                def destinations(items):
+                    for item in items:
+                        if isinstance(item, list):
+                            destinations(item)
+                        else:
+                            page_number = reader.get_destination_page_number(item)
+                            if page_number is not None:
+                                outline.setdefault(page_number + 1, []).append(str(item.title))
+                destinations(reader.outline)
+                pages = [(i + 1, p.extract_text() or '') for i, p in enumerate(reader.pages)]
             chunks, gaps = [], []
             section = 'Document'
             for page, text in pages:
@@ -197,7 +221,9 @@ class Knowledge:
                     gaps.append(page)
                     continue
                 headings = re.findall(r'^\s*(?:CHAPTER\s+\d+[^\n]*|\d+\.\d+\s+[^\n]+|#{1,3}\s+[^\n]+)', text, re.M)
-                if headings:
+                if page in outline:
+                    section = '; '.join(outline[page])[:180]
+                elif headings and not outline:
                     section = headings[0].strip().lstrip('#').strip()[:120]
                 printed = re.findall(r'(?:^|\n)(\d{1,3})\s+(?:CHAPTER|[A-Z])', text)
                 for number, content in enumerate(self.tokens.split(text)):
@@ -222,7 +248,9 @@ class Knowledge:
                 c.pop('vector', None)
             (path / 'chunks.json').write_text(json.dumps(chunks))
             metadata.update(fingerprint=fingerprint, source_sha256=source_hash, embedding_digest=digest,
-                            seconds=time.perf_counter() - start, index_bytes=(path / 'index.sqlite3').stat().st_size)
+                            seconds=time.perf_counter() - start, index_bytes=(path / 'index.sqlite3').stat().st_size,
+                            extraction='pypdf-outline-v3', outline_pages=len(outline),
+                            extraction_warnings=['PDF page labels not assumed to match printed page numbers', 'Figures and equations can lose information during text extraction'])
             self.update(did, 'ready', metadata)
         except Exception as error:
             self.update(did, 'failed', metadata, 'Import failed: ' + (str(error) if isinstance(error, ProviderError) else type(error).__name__) + '. Retry after checking the PDF, tokenizer and local models.')
@@ -237,6 +265,7 @@ class Knowledge:
         self.ready(owner, did)
         return json.loads((self.directory / did / 'chunks.json').read_text())
 
+    @traced('search', 'retriever')
     def search(self, owner: str, did: str, query: str, mode: str = 'hybrid') -> list[dict]:
         doc = self.ready(owner, did)
         if self.models.digest(self.models.embedding) != doc['metadata']['embedding_digest']:
@@ -263,21 +292,27 @@ class Knowledge:
         source = path / 'source.pdf' if (path / 'source.pdf').exists() else path / 'source.md'
         self.jobs[did] = self.worker.submit(self.ingest, did, source)
 
+    @traced('answer', 'chain')
     def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag', evidence: list | None = None) -> dict:
-        if method != 'rag':
+        if method not in METHODS:
             raise ValueError('Unsupported answering method')
         start = time.perf_counter()
-        hits = evidence if evidence is not None else self.search(owner, did, question)
-        selected, count = [], 0
-        for hit in hits:
-            size = self.tokens.count(f"[{hit['id']}] (PDF page {hit['page']}) {hit['text']}\n\n")
-            if count + size <= 3072:
-                selected.append(hit)
-                count += size
+        acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'steps': []}
+        if evidence is not None:
+            hits = evidence
+        elif method == 'rag':
+            hits = self.search(owner, did, question)
+            acquired['steps'] = ['Retrieved evidence']
+        else:
+            from strategies import agentic, okf
+            acquired = (agentic if method == 'agentic' else okf)(self, owner, did, question, history or [])
+            hits = acquired['evidence']
+        selected = self.select_evidence(hits)
+        count = self.tokens.count(self.context(selected))
         if not selected:
             result: dict[str, Any] = {'text': 'Insufficient evidence in this document.', 'input_tokens': 0, 'output_tokens': 0}
         else:
-            context = '\n\n'.join(f"[{h['id']}] (PDF page {h['page']}) {h['text']}" for h in selected)
+            context = self.context(selected)
             messages = [{'role': 'system', 'content': ANSWER_PROMPT}]
             recent: list[dict] = []
             history_tokens = 0
@@ -298,7 +333,39 @@ class Knowledge:
             raise ProviderError('Answer citation validation failed. Retry or inspect the retrieved sources.', 502)
         return {'reply': result['text'], 'method': method, 'document_id': did,
                 'citations': [allowed[cid] for cid in dict.fromkeys(ids)],
-                'evidence': selected, 'evidence_tokens': count, 'input_tokens': result['input_tokens'],
-                'output_tokens': result['output_tokens'], 'seconds': time.perf_counter() - start,
-                'steps': ['Retrieved evidence', 'Generated grounded answer', 'Validated citation IDs'],
-                'model_calls': int(bool(selected))}
+                'evidence': selected, 'evidence_tokens': count, 'input_tokens': result['input_tokens'] + acquired['input_tokens'],
+                'output_tokens': result['output_tokens'] + acquired['output_tokens'], 'seconds': time.perf_counter() - start,
+                'steps': acquired['steps'] + ['Generated grounded answer' if selected else 'Abstained: insufficient evidence', 'Validated citation IDs'],
+                'model_calls': acquired['calls'] + int(bool(selected))}
+
+    @staticmethod
+    def context(hits: list[dict]) -> str:
+        return '\n\n'.join(f"[{h['id']}] (PDF page {h['page']}) {h['text']}" for h in hits)
+
+    def select_evidence(self, hits: list[dict]) -> list[dict]:
+        selected: list[dict] = []
+        for hit in hits:
+            if self.tokens.count(self.context(selected + [hit])) <= 3072:
+                selected.append(hit)
+        return selected
+
+    @traced('compare', 'span')
+    def compare(self, owner: str, did: str, question: str) -> dict:
+        self.ready(owner, did)
+        results = {}
+        for method in METHODS:
+            try:
+                results[method] = {'status': 'complete', **self.answer(owner, did, question, method=method)}
+            except ProviderError as error:
+                results[method] = {'status': 'failed', 'error': str(error)}
+        result = {'id': uuid4().hex, 'document_id': did, 'question': question, 'results': results}
+        with self.store.connect() as db:
+            db.execute('INSERT INTO comparisons VALUES(?,?,?,?)', (result['id'], owner, did, json.dumps(result)))
+        return result
+
+    def comparison(self, owner: str, cid: str) -> dict:
+        with self.store.connect() as db:
+            row = db.execute('SELECT data FROM comparisons WHERE owner=? AND id=?', (owner, cid)).fetchone()
+            if not row:
+                raise NotFound()
+            return json.loads(row['data'])
