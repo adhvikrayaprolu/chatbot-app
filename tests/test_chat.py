@@ -3,11 +3,11 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
-from openai import APITimeoutError, RateLimitError
+from openai import APITimeoutError
 
 from app import create_app
 from gpt_handler import OpenAIProvider, ProviderError
-from storage import Store, Conflict
+from storage import Conflict, Store
 
 
 class FakeProvider:
