@@ -89,7 +89,7 @@ $('composer').addEventListener('submit', async (event) => {
 });
 $('message').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); $('composer').requestSubmit(); } });
 (async () => {
-  try { const session = await api('/api/session'); csrf = session.csrf; await refreshDocuments(); $('mode').textContent = session.provider === 'demo' ? 'Ordinary chat: offline demo · study: local Ollama' : 'OpenAI · replies use your configured key'; const list = await refreshList(); if (list.length) { current = list[0].id; await load(current); await refreshList(); } else $('newChat').click(); } catch (error) { status(error.message + ' Reload to reconnect.'); }
+  try { const session = await api('/api/session'); csrf = session.csrf; await refreshDocuments(); await refreshExperiments(); $('mode').textContent = session.provider === 'demo' ? 'Ordinary chat: offline demo · study: local Ollama' : 'OpenAI · replies use your configured key'; const list = await refreshList(); if (list.length) { current = list[0].id; await load(current); await refreshList(); } else $('newChat').click(); } catch (error) { status(error.message + ' Reload to reconnect.'); }
 })();
 
 function documentState() {
@@ -131,7 +131,7 @@ $('retryDocument').addEventListener('click', async () => {
 $('deleteDocument').addEventListener('click', () => $('removeDocumentDialog').showModal());
 $('cancelRemoveDocument').addEventListener('click', () => $('removeDocumentDialog').close());
 $('confirmRemoveDocument').addEventListener('click', async () => {
-  try { await api(`/api/documents/${$('document').value}`, {method: 'DELETE'}); $('removeDocumentDialog').close(); await refreshDocuments(); }
+  try { await api(`/api/documents/${$('document').value}`, {method: 'DELETE'}); $('removeDocumentDialog').close(); await refreshDocuments(); await refreshExperiments(); }
   catch (error) { status(error.message); }
 });
 function renderEvidence(parent, result) {
@@ -139,7 +139,8 @@ function renderEvidence(parent, result) {
   stats.textContent = `${result.method} · ${result.seconds.toFixed(2)}s · ${result.input_tokens + result.output_tokens} tokens · ${result.model_calls} model calls`;
   parent.append(stats);
   const sources = document.createElement('div'); sources.className = 'sources';
-  for (const citation of result.citations) {
+  if (result.source_removed) { const note = document.createElement('p'); note.textContent = 'Source removed; passage text is no longer available.'; parent.append(note); }
+  for (const citation of result.source_removed ? [] : result.citations) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = `${citation.id} · PDF page ${citation.page}`;
     button.addEventListener('click', async () => {
       try { const source = await api(`/api/documents/${result.document_id}/sources/${citation.id}`); $('sourceLocation').textContent = `PDF page ${source.page}${source.printed_page ? ` · printed page ${source.printed_page}` : ''} · ${source.section}`; $('sourceText').textContent = source.text; $('sourceDialog').showModal(); }
@@ -159,13 +160,7 @@ $('compare').addEventListener('click', async () => {
   pending = true; busy(); status('Comparing three methods locally… This can take several minutes.');
   try {
     const result = await api('/api/comparisons', {method: 'POST', body: JSON.stringify({document_id: documentId, question})});
-    $('comparisonQuestion').textContent = result.question; $('comparisonResults').replaceChildren();
-    for (const [method, answer] of Object.entries(result.results)) {
-      const card = document.createElement('section'); card.className = 'comparisonCard'; const title = document.createElement('h3'); title.textContent = method;
-      const text = document.createElement('p'); text.textContent = answer.status === 'complete' ? answer.reply : answer.error;
-      card.append(title, text); if (answer.status === 'complete') renderEvidence(card, answer); $('comparisonResults').append(card);
-    }
-    $('comparisonDialog').showModal(); status('Comparison saved separately; your chat has not changed.');
+    showComparison(result); await refreshExperiments(); status('Comparison saved separately; your chat has not changed.');
   } catch (error) { status(error.message + ' Your question is kept for retry.'); }
   finally { pending = false; busy(); documentState(); }
 });
@@ -173,3 +168,21 @@ setInterval(async () => {
   if (!csrf || pending || !documents.some(d => ['queued', 'indexing'].includes(d.status))) return;
   try { await refreshDocuments(); } catch (error) { status(error.message); }
 }, 2000);
+
+function showComparison(result) {
+  $('comparisonQuestion').textContent = result.question; $('comparisonResults').replaceChildren();
+  for (const [method, answer] of Object.entries(result.results)) {
+    const card = document.createElement('section'); card.className = 'comparisonCard'; const title = document.createElement('h3'); title.textContent = method;
+    const text = document.createElement('p'); text.textContent = answer.status === 'complete' ? answer.reply : answer.error;
+    card.append(title, text); if (answer.status === 'complete') renderEvidence(card, answer); $('comparisonResults').append(card);
+  }
+  $('comparisonDialog').showModal();
+}
+async function refreshExperiments() {
+  const data = await api('/api/comparisons'); $('savedComparison').replaceChildren(new Option('Choose a comparison', ''));
+  for (const experiment of data.comparisons) $('savedComparison').append(new Option(experiment.question, experiment.id));
+}
+$('savedComparison').addEventListener('change', async () => {
+  if (!$('savedComparison').value || pending) return;
+  try { showComparison(await api(`/api/comparisons/${$('savedComparison').value}`)); } catch (error) { status(error.message); }
+});

@@ -182,6 +182,10 @@ def create_app(config=None, provider=None, knowledge=None):
                 return jsonify(chunk)
         raise NotFound()
 
+    @app.get('/api/comparisons')
+    def list_comparisons():
+        return jsonify(comparisons=corpus.list_comparisons(session['owner']))
+
     @app.post('/api/comparisons')
     def compare_methods():
         data = payload()

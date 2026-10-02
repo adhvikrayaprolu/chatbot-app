@@ -185,3 +185,34 @@ def test_remote_corpus_destinations_rejected(monkeypatch):
     with pytest.raises(ValueError):
         client()
     client.cache_clear()
+
+
+def test_source_removal_erases_saved_passages_but_preserves_reply(corpus):
+    k, did = corpus
+    conversation = k.store.create('alice','Study')
+    answer = k.answer('alice',did,'barrier')
+    k.store.append_turn('alice',conversation['id'],0,'barrier',answer['reply'],answer)
+    k.delete('alice',did)
+    with k.store.connect() as db:
+        saved = __import__('json').loads(db.execute('SELECT data FROM answer_metadata').fetchone()[0])
+    assert saved['source_removed'] is True
+    assert saved['evidence'] == []
+    assert 'text' not in saved['citations'][0]
+    assert k.store.get('alice',conversation['id'])['messages'][1]['content'] == answer['reply']
+
+
+def test_deleted_source_cannot_reappear_in_an_inflight_turn(corpus):
+    k, did = corpus
+    conversation = k.store.create('alice','Study')
+    answer = k.answer('alice',did,'barrier')
+    k.delete('alice',did)
+    with pytest.raises(Conflict):
+        k.store.append_turn('alice',conversation['id'],0,'barrier',answer['reply'],answer)
+    assert k.store.get('alice',conversation['id'])['messages'] == []
+    assert k.store.get('alice',conversation['id'])['version'] == 0
+
+
+def test_gold_evidence_boundary_still_checks_ownership(corpus):
+    k, did = corpus
+    with pytest.raises(NotFound):
+        k.answer('bob',did,'barrier',evidence=[])
