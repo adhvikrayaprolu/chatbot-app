@@ -216,3 +216,10 @@ def test_gold_evidence_boundary_still_checks_ownership(corpus):
     k, did = corpus
     with pytest.raises(NotFound):
         k.answer('bob',did,'barrier',evidence=[])
+def test_observability_keeps_only_numeric_operational_metadata():
+    from observability import mask
+
+    assert mask(data={'seconds': .25, 'input_tokens': 13, 'text': 'private passage',
+                      'output_tokens': 'private text', 'model_calls': True}) == {
+                          'seconds': .25, 'input_tokens': 13}
+    assert mask(data='private passage') == '[content omitted]'
