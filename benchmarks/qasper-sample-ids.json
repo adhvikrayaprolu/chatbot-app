@@ -1,0 +1,252 @@
+[
+  {
+    "paper_id": "1909.03135",
+    "question_id": "22815878083ebd2f9e08bc33a5e733063dac7a0f",
+    "annotation_id": "4777f06304cf7779e0285d51a80f45fddb26e499"
+  },
+  {
+    "paper_id": "1703.04001",
+    "question_id": "9af3142630b350c93875441e1e1767312df76d17",
+    "annotation_id": "d9904d2d1e6a07ce4c97caba6b1e618ea50aed31"
+  },
+  {
+    "paper_id": "1606.03676",
+    "question_id": "3ddff6b707767c3dd54d7104fe88b628765cae58",
+    "annotation_id": "8e332b0027680efd19503bdeee7c4f78520d790d"
+  },
+  {
+    "paper_id": "2003.08385",
+    "question_id": "787c4d4628eac00dbceb1c96020bff0090edca46",
+    "annotation_id": "3abdeb3cc23d2bd39614357c0c243d5583b25132"
+  },
+  {
+    "paper_id": "1703.07090",
+    "question_id": "8060a773f6a136944f7b59758d08cc6f2a59693b",
+    "annotation_id": "86877f451ae493ab86f280855917829c75d0b37a"
+  },
+  {
+    "paper_id": "1802.06024",
+    "question_id": "a7d020120a45c39bee624f65443e09b895c10533",
+    "annotation_id": "7c018db97e98972e0d0f26697a7830456982dff5"
+  },
+  {
+    "paper_id": "1801.10293",
+    "question_id": "22b740cc3c8598247ee102279f96575bdb10d53f",
+    "annotation_id": "eed7d6f5457285a6272b4a832345b718d5ec59ba"
+  },
+  {
+    "paper_id": "2003.08380",
+    "question_id": "7fb27d8d5a8bb351f97236a1f6dcd8b2613b16f1",
+    "annotation_id": "753d6abbcaa546504568a74ccb79964dcd9ff96d"
+  },
+  {
+    "paper_id": "2003.02249",
+    "question_id": "8b9c12df9f89040f1485b3847a29f11b5c9262e0",
+    "annotation_id": "139662e4c71d8e6e40f0eec1ca1f160e30d50646"
+  },
+  {
+    "paper_id": "1907.03187",
+    "question_id": "a5505e25ee9ae84090e1442034ddbb3cedabcf04",
+    "annotation_id": "320204bfbbf87c73bf9a0b740d9534cfefe5362d"
+  },
+  {
+    "paper_id": "1905.10851",
+    "question_id": "9bb7ae50bff91571a945c1af025ed2e67714a788",
+    "annotation_id": "8c81c3d2e2dfd0d3f104f6bf85db76db58b042d0"
+  },
+  {
+    "paper_id": "1901.05287",
+    "question_id": "d27438b11bc70e706431dda0af2b1c0b0d209f96",
+    "annotation_id": "2f2e3885bca4f406dfa45448aab15c4a4d23d304"
+  },
+  {
+    "paper_id": "1910.14599",
+    "question_id": "af5730d82535464cedfa707a03415ac2e7a21295",
+    "annotation_id": "0dac9fd15c6bd49bef39f38f0f7bf558d7e99278"
+  },
+  {
+    "paper_id": "1908.08717",
+    "question_id": "2da4c3679111dd92a1d0869dae353ebe5989dfd2",
+    "annotation_id": "2fd3d76d0a7ec01bc3f96545f2998764c1f3b9a2"
+  },
+  {
+    "paper_id": "1911.07555",
+    "question_id": "012b8a89aea27485797373adbcda32f16f9d7b54",
+    "annotation_id": "0d57db99bd08c08fae9de542f4dec591cc91d0d9"
+  },
+  {
+    "paper_id": "1603.01987",
+    "question_id": "6a633811019e9323dc8549ad540550d27aa6d972",
+    "annotation_id": "4d6baea56c9e8f09c099448cf97229461f77273a"
+  },
+  {
+    "paper_id": "1709.07814",
+    "question_id": "fd0a3e9c210163a55d3ed791e95ae3875184b8f8",
+    "annotation_id": "68466f3b3a82ea3fd18ea7d58c75ae75421a3920"
+  },
+  {
+    "paper_id": "1809.01541",
+    "question_id": "fa527becb8e2551f4fd2ae840dbd4a68971349e0",
+    "annotation_id": "4565b970ac022b800c018983c66079dd9febec3f"
+  },
+  {
+    "paper_id": "1910.07601",
+    "question_id": "1e185a3b8cac1da939427b55bf1ba7e768c5dae4",
+    "annotation_id": "ba7a565b186a2b1464815ac25bafc8131187670d"
+  },
+  {
+    "paper_id": "1701.08229",
+    "question_id": "22714f6cad2d5c54c28823e7285dc85e8d6bc109",
+    "annotation_id": "82e059daa5257165995afb3457d6f4c843bff243"
+  },
+  {
+    "paper_id": "1611.03599",
+    "question_id": "e44a6bf67ce3fde0c6608b150030e44d87eb25e3",
+    "annotation_id": "31c82ccf7692b2fe2aa345c66a99dbe4ff88eaac"
+  },
+  {
+    "paper_id": "1909.09067",
+    "question_id": "9eabb54c2408dac24f00f92cf1061258c7ea2e1a",
+    "annotation_id": "711f1ad56049181f6dda2384816a3df8b4e1056a"
+  },
+  {
+    "paper_id": "1910.06036",
+    "question_id": "f225a9f923e4cdd836dd8fe097848da06ec3e0cc",
+    "annotation_id": "531b59469d98b703ab5a644cb5a19e3dbcf0ab24"
+  },
+  {
+    "paper_id": "1809.00530",
+    "question_id": "b46c0015a122ee5fb95c2a45691cb97f80de1bb6",
+    "annotation_id": "ded38c0efddb9da4061ffe6ce1f7fa7876c06649"
+  },
+  {
+    "paper_id": "1903.03530",
+    "question_id": "1b1a30e9e68a9ae76af467e60cefb180d135e285",
+    "annotation_id": "345bc8bbd8a775f148bebc6531b087b2960f6df9"
+  },
+  {
+    "paper_id": "1802.00396",
+    "question_id": "06be47e2f50b902b05ebf1ff1c66051925f5c247",
+    "annotation_id": "b31a396191de99bee6fb1aede646393f382495f0"
+  },
+  {
+    "paper_id": "1909.00512",
+    "question_id": "1ec152119cf756b16191b236c85522afeed11f59",
+    "annotation_id": "2b51036f1dd82e127006af1a267198c7f06b0e9b"
+  },
+  {
+    "paper_id": "2004.02192",
+    "question_id": "55507f066073b29c1736b684c09c045064053ba9",
+    "annotation_id": "25abd39ac069858fdef5b48e73cfc56265c8d153"
+  },
+  {
+    "paper_id": "1910.03634",
+    "question_id": "f71b52e00e0be80c926f153b9fe0a06dd93af11e",
+    "annotation_id": "19947f593e4d638d8f5cdf5a83e44ae3f338e9a4"
+  },
+  {
+    "paper_id": "1908.07195",
+    "question_id": "43eecc576348411b0634611c81589f618cd4fddf",
+    "annotation_id": "9121b87725a3203a426ec3615c826080c38ea46c"
+  },
+  {
+    "paper_id": "1806.00738",
+    "question_id": "b08f88d1facefceb87e134ba2c1fa90035018e83",
+    "annotation_id": "68e5b6e2318ffbc944b327f6d9b993bf29823a75"
+  },
+  {
+    "paper_id": "1706.08198",
+    "question_id": "6024039bbd1118c5dab86c41cce1175d99f10a25",
+    "annotation_id": "83b4f9e9156dc500443e728769752c21d8cf4df0"
+  },
+  {
+    "paper_id": "1503.00841",
+    "question_id": "6becff2967fe7c5256fe0b00231765be5b9db9f1",
+    "annotation_id": "ea5858495aad50966177d146f5e71733ec1def94"
+  },
+  {
+    "paper_id": "1904.10503",
+    "question_id": "1c997c268c68149ae6fb43d83ffcd53f0e7fe57e",
+    "annotation_id": "5573af4ed6908677bb3e911b0699fecd657a3e38"
+  },
+  {
+    "paper_id": "1706.01875",
+    "question_id": "dcc1115aeaf87118736e86f3e3eb85bf5541281c",
+    "annotation_id": "75e5016d97adfc93d0841a0e787b253efc15c86b"
+  },
+  {
+    "paper_id": "1811.00147",
+    "question_id": "fd8e23947095fe2230ffe1a478945829b09c8c95",
+    "annotation_id": "6a731bc9964ed8edf10353e68c8a4efee4ecc637"
+  },
+  {
+    "paper_id": "1909.05359",
+    "question_id": "03ebb29c08375afc42a957c7b2dc1a42bed7b713",
+    "annotation_id": "efff5c6e4a7be6135716fa8f1a72fe0cd264723a"
+  },
+  {
+    "paper_id": "1906.01040",
+    "question_id": "27cf16bc9ef71761b9df6217f00f39f21130ce15",
+    "annotation_id": "105b12239011722b869c8ba3c1e2fe74b157a364"
+  },
+  {
+    "paper_id": "2004.01853",
+    "question_id": "ed2eb4e54b641b7670ab5a7060c7b16c628699ab",
+    "annotation_id": "3d813e2f3187795e8ed3399472568a7c6347b6ee"
+  },
+  {
+    "paper_id": "2002.01320",
+    "question_id": "f8f4e4a50d2b3fbd193327e79ea32d8d057e1414",
+    "annotation_id": "907e5c11cdbff5f3425a6fa48ddc39b908bb1467"
+  },
+  {
+    "paper_id": "1710.04203",
+    "question_id": "c09a92e25e6a81369fcc4ae6045491f2690ccc10",
+    "annotation_id": "91afbbbf00718a433b50da63ccf3ee20305196e3"
+  },
+  {
+    "paper_id": "1601.02403",
+    "question_id": "206739417251064b910ae9e5ff096e867ee10fb8",
+    "annotation_id": "d8b4e49946a89214a31043ac5304b5f5661a8f0d"
+  },
+  {
+    "paper_id": "2001.07786",
+    "question_id": "902b3123aec0f3a39319ffa9d05ab8e08a2eb567",
+    "annotation_id": "a3c1b18d98491cbc074f728a0f421427dd646385"
+  },
+  {
+    "paper_id": "1910.12574",
+    "question_id": "96a4091f681872e6d98d0efee777d9e820cb8dae",
+    "annotation_id": "f83e90e59d7a1f7a5079f48d1c4c3652136759d6"
+  },
+  {
+    "paper_id": "1701.05574",
+    "question_id": "49c32a2a64eb41381e5f12ccea4150cac9f3303d",
+    "annotation_id": "640333fb1b1eb32a4350f17bc6cd1f3f8e9bcfa6"
+  },
+  {
+    "paper_id": "1811.05711",
+    "question_id": "0689904db9b00a814e3109fb1698086370a28fa2",
+    "annotation_id": "76d51096244e294932510a13b6b5a8f0966be07e"
+  },
+  {
+    "paper_id": "1909.03405",
+    "question_id": "7b4fb6da74e6bd1baea556788a02969134cf0800",
+    "annotation_id": "84b7f522c915feb348946ddbd7409cadc8b2c1cb"
+  },
+  {
+    "paper_id": "1910.14076",
+    "question_id": "a712718e6596ba946f29a99838d82f95b9ebb1ce",
+    "annotation_id": "5e562935cb84f11461fb1cb7a7eb12bbe8c81286"
+  },
+  {
+    "paper_id": "1803.09123",
+    "question_id": "493e971ee3f57a821ef1f67ef3cd47ade154e7c4",
+    "annotation_id": "938dbfd995022a81bf59f32d7cfa1888356a0b21"
+  },
+  {
+    "paper_id": "1705.04153",
+    "question_id": "ef396a34436072cb3c40b0c9bc9179fee4a168ae",
+    "annotation_id": "caed5edf81563e6848d570a20aecda804491cfc0"
+  }
+]

@@ -5,4 +5,4 @@ select = ["E4", "E7", "E9", "F", "I"]
 [tool.mypy]
 ignore_missing_imports = true
 check_untyped_defs = true
-files = ["knowledge.py", "strategies.py", "observability.py", "app.py", "storage.py", "gpt_handler.py"]
+files = ["knowledge.py", "strategies.py", "observability.py", "app.py", "storage.py", "gpt_handler.py", "evaluation.py", "evaluation_external.py"]

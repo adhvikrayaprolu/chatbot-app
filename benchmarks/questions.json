@@ -1,0 +1,1022 @@
+[
+  {
+    "id": "factual-01",
+    "category": "factual",
+    "split": "development",
+    "question": "Which CUDA variables form the global index for a one-dimensional launch?",
+    "history": []
+  },
+  {
+    "id": "conceptual-01",
+    "category": "conceptual",
+    "split": "development",
+    "question": "Why does a vector-add kernel need a bounds guard even when its grid covers the array?",
+    "history": []
+  },
+  {
+    "id": "synthesis-01",
+    "category": "synthesis",
+    "split": "development",
+    "question": "How do grid sizing and a bounds guard work together for vector addition?",
+    "history": []
+  },
+  {
+    "id": "code_formula-01",
+    "category": "code_formula",
+    "split": "development",
+    "question": "For blockIdx.x=3, blockDim.x=128 and threadIdx.x=17, what is the global index?",
+    "history": []
+  },
+  {
+    "id": "followup-01",
+    "category": "followup",
+    "split": "development",
+    "question": "For that same launch, should this thread write when the array length is 400?",
+    "history": [
+      {
+        "role": "user",
+        "content": "For blockIdx.x=3, blockDim.x=128 and threadIdx.x=17, what is the global index?"
+      },
+      {
+        "role": "assistant",
+        "content": "401"
+      }
+    ]
+  },
+  {
+    "id": "factual-02",
+    "category": "factual",
+    "split": "development",
+    "question": "Which CUDA API allocates device global memory?",
+    "history": []
+  },
+  {
+    "id": "conceptual-02",
+    "category": "conceptual",
+    "split": "development",
+    "question": "Why must host and device data movement be considered when accelerating a computation?",
+    "history": []
+  },
+  {
+    "id": "synthesis-02",
+    "category": "synthesis",
+    "split": "development",
+    "question": "How do cudaMalloc, cudaMemcpy and cudaFree form the lifetime of an input array?",
+    "history": []
+  },
+  {
+    "id": "code_formula-02",
+    "category": "code_formula",
+    "split": "development",
+    "question": "What does cudaMemcpyHostToDevice mean in a cudaMemcpy call?",
+    "history": []
+  },
+  {
+    "id": "followup-02",
+    "category": "followup",
+    "split": "development",
+    "question": "After that copy, which side holds the destination buffer?",
+    "history": [
+      {
+        "role": "user",
+        "content": "What does cudaMemcpyHostToDevice mean in a cudaMemcpy call?"
+      },
+      {
+        "role": "assistant",
+        "content": "Copy from CPU host memory to GPU device memory."
+      }
+    ]
+  },
+  {
+    "id": "factual-03",
+    "category": "factual",
+    "split": "development",
+    "question": "What is the synchronization scope of __syncthreads()?",
+    "history": []
+  },
+  {
+    "id": "conceptual-03",
+    "category": "conceptual",
+    "split": "development",
+    "question": "Why is __syncthreads() inside a branch taken by only some threads unsafe?",
+    "history": []
+  },
+  {
+    "id": "synthesis-03",
+    "category": "synthesis",
+    "split": "development",
+    "question": "Why does block-independent scheduling rule out using a block barrier as a grid-wide barrier?",
+    "history": []
+  },
+  {
+    "id": "code_formula-03",
+    "category": "code_formula",
+    "split": "development",
+    "question": "Is if(threadIdx.x % 2 == 0) __syncthreads(); a safe block barrier pattern?",
+    "history": []
+  },
+  {
+    "id": "followup-03",
+    "category": "followup",
+    "split": "development",
+    "question": "Would adding a different barrier in the else branch fix that pattern?",
+    "history": [
+      {
+        "role": "user",
+        "content": "Is if(threadIdx.x % 2 == 0) __syncthreads(); a safe block barrier pattern?"
+      },
+      {
+        "role": "assistant",
+        "content": "No, only even-indexed threads reach the barrier."
+      }
+    ]
+  },
+  {
+    "id": "factual-04",
+    "category": "factual",
+    "split": "development",
+    "question": "How many threads does the CUDA warp described in this edition contain?",
+    "history": []
+  },
+  {
+    "id": "conceptual-04",
+    "category": "conceptual",
+    "split": "development",
+    "question": "Why can a branch reduce throughput when threads in a warp take different paths?",
+    "history": []
+  },
+  {
+    "id": "synthesis-04",
+    "category": "synthesis",
+    "split": "development",
+    "question": "How do warp execution and block synchronization have different roles?",
+    "history": []
+  },
+  {
+    "id": "code_formula-04",
+    "category": "code_formula",
+    "split": "development",
+    "question": "How many warps are needed for a block of 128 threads, assuming 32-thread warps?",
+    "history": []
+  },
+  {
+    "id": "followup-04",
+    "category": "followup",
+    "split": "development",
+    "question": "If only half of those threads take a branch, what determines divergence: block membership or warp path agreement?",
+    "history": [
+      {
+        "role": "user",
+        "content": "How many warps are needed for a block of 128 threads, assuming 32-thread warps?"
+      },
+      {
+        "role": "assistant",
+        "content": "4"
+      }
+    ]
+  },
+  {
+    "id": "factual-05",
+    "category": "factual",
+    "split": "heldout",
+    "question": "Where are reused matrix tiles staged in the tiled matrix multiplication kernel?",
+    "history": []
+  },
+  {
+    "id": "conceptual-05",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why do tiled kernels synchronize before using and before replacing a shared-memory tile?",
+    "history": []
+  },
+  {
+    "id": "synthesis-05",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do tiling and occupancy create a resource tradeoff?",
+    "history": []
+  },
+  {
+    "id": "code_formula-05",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "For a 16 by 16 float tile using 4 bytes per element, how many bytes does one tile require?",
+    "history": []
+  },
+  {
+    "id": "followup-05",
+    "category": "followup",
+    "split": "heldout",
+    "question": "If two such input tiles are staged, how many bytes are required before other shared variables?",
+    "history": [
+      {
+        "role": "user",
+        "content": "For a 16 by 16 float tile using 4 bytes per element, how many bytes does one tile require?"
+      },
+      {
+        "role": "assistant",
+        "content": "1024"
+      }
+    ]
+  },
+  {
+    "id": "factual-06",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What access pattern is favorable for global-memory coalescing?",
+    "history": []
+  },
+  {
+    "id": "conceptual-06",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can strided accesses require more memory transactions than adjacent accesses?",
+    "history": []
+  },
+  {
+    "id": "synthesis-06",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "Why should tiling and coalescing be evaluated separately in matrix multiplication?",
+    "history": []
+  },
+  {
+    "id": "code_formula-06",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "In row-major storage with width 64, what element offset is row 2, column 7?",
+    "history": []
+  },
+  {
+    "id": "followup-06",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Would adjacent threads varying the column or varying the row give contiguous accesses in that layout?",
+    "history": [
+      {
+        "role": "user",
+        "content": "In row-major storage with width 64, what element offset is row 2, column 7?"
+      },
+      {
+        "role": "assistant",
+        "content": "135"
+      }
+    ]
+  },
+  {
+    "id": "factual-07",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What does warp scheduling do when a warp waits on a long-latency operation?",
+    "history": []
+  },
+  {
+    "id": "conceptual-07",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why is high occupancy not alone a guarantee of high performance?",
+    "history": []
+  },
+  {
+    "id": "synthesis-07",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How can excessive register use interfere with hiding memory latency?",
+    "history": []
+  },
+  {
+    "id": "code_formula-07",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If a multiprocessor budget has 65536 registers and each thread needs 64, what register-only upper bound on threads follows?",
+    "history": []
+  },
+  {
+    "id": "followup-07",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Does that register-only bound prove the device will actually keep that many threads resident?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If a multiprocessor budget has 65536 registers and each thread needs 64, what register-only upper bound on threads follows?"
+      },
+      {
+        "role": "assistant",
+        "content": "1024"
+      }
+    ]
+  },
+  {
+    "id": "factual-08",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What is thread coarsening?",
+    "history": []
+  },
+  {
+    "id": "conceptual-08",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can thread coarsening reduce overhead yet hurt latency hiding?",
+    "history": []
+  },
+  {
+    "id": "synthesis-08",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How can thread coarsening interact with shared-memory tiling?",
+    "history": []
+  },
+  {
+    "id": "code_formula-08",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If each thread computes 4 outputs, how many threads cover 1024 outputs without padding?",
+    "history": []
+  },
+  {
+    "id": "followup-08",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Is reducing the thread count by that factor automatically a fourfold speedup?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If each thread computes 4 outputs, how many threads cover 1024 outputs without padding?"
+      },
+      {
+        "role": "assistant",
+        "content": "256"
+      }
+    ]
+  },
+  {
+    "id": "factual-09",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What are halo cells in tiled convolution?",
+    "history": []
+  },
+  {
+    "id": "conceptual-09",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why is an input tile larger than its output tile for neighborhood convolution?",
+    "history": []
+  },
+  {
+    "id": "synthesis-09",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do constant-memory filter reuse and shared-memory input tiling address different data reuse?",
+    "history": []
+  },
+  {
+    "id": "code_formula-09",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "For a one-dimensional output tile of 32 and a radius-2 filter, how many input elements including both halos are needed?",
+    "history": []
+  },
+  {
+    "id": "followup-09",
+    "category": "followup",
+    "split": "heldout",
+    "question": "If the radius grows to 3 while the output tile remains 32, what is the input size?",
+    "history": [
+      {
+        "role": "user",
+        "content": "For a one-dimensional output tile of 32 and a radius-2 filter, how many input elements including both halos are needed?"
+      },
+      {
+        "role": "assistant",
+        "content": "36"
+      }
+    ]
+  },
+  {
+    "id": "factual-10",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What does a stencil computation use to update a grid point?",
+    "history": []
+  },
+  {
+    "id": "conceptual-10",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can register tiling help stencil computations?",
+    "history": []
+  },
+  {
+    "id": "synthesis-10",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "What common boundary issue connects tiled stencils and tiled convolution?",
+    "history": []
+  },
+  {
+    "id": "code_formula-10",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "The described stencil performs 13 floating-point operations and loads seven 4-byte inputs. What is its operations-per-byte ratio, rounded to four decimal places?",
+    "history": []
+  },
+  {
+    "id": "followup-10",
+    "category": "followup",
+    "split": "heldout",
+    "question": "If the operation count becomes 14 while the input bytes stay the same, what is the operations-per-byte ratio?",
+    "history": [
+      {
+        "role": "user",
+        "content": "The described stencil performs 13 floating-point operations and loads seven 4-byte inputs. What is its operations-per-byte ratio, rounded to four decimal places?"
+      },
+      {
+        "role": "assistant",
+        "content": "13 / (7 * 4) = 0.4643 operations per byte."
+      }
+    ]
+  },
+  {
+    "id": "factual-11",
+    "category": "factual",
+    "split": "heldout",
+    "question": "Why does the basic parallel histogram use atomic updates?",
+    "history": []
+  },
+  {
+    "id": "conceptual-11",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why does skewed input make histogram atomics particularly contentious?",
+    "history": []
+  },
+  {
+    "id": "synthesis-11",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do privatization and aggregation reduce global histogram contention?",
+    "history": []
+  },
+  {
+    "id": "code_formula-11",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If four threads increment a bin initially equal to 5 using atomicAdd by 1, what is its final value?",
+    "history": []
+  },
+  {
+    "id": "followup-11",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Would replacing those atomics with ordinary read-modify-write operations preserve that result reliably?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If four threads increment a bin initially equal to 5 using atomicAdd by 1, what is its final value?"
+      },
+      {
+        "role": "assistant",
+        "content": "9"
+      }
+    ]
+  },
+  {
+    "id": "factual-12",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What does a reduction combine?",
+    "history": []
+  },
+  {
+    "id": "conceptual-12",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why does tree reduction expose more parallelism than a sequential accumulation?",
+    "history": []
+  },
+  {
+    "id": "synthesis-12",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How can thread coarsening and reduction trees be combined?",
+    "history": []
+  },
+  {
+    "id": "code_formula-12",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "How many pairwise tree levels are needed to reduce 1024 values when the active count halves each level?",
+    "history": []
+  },
+  {
+    "id": "followup-12",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Does using fewer levels by doing more sequential work per thread always reduce total runtime?",
+    "history": [
+      {
+        "role": "user",
+        "content": "How many pairwise tree levels are needed to reduce 1024 values when the active count halves each level?"
+      },
+      {
+        "role": "assistant",
+        "content": "10"
+      }
+    ]
+  },
+  {
+    "id": "factual-13",
+    "category": "factual",
+    "split": "heldout",
+    "question": "How does inclusive scan differ from exclusive scan?",
+    "history": []
+  },
+  {
+    "id": "conceptual-13",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why is scan useful for turning per-item flags into output positions?",
+    "history": []
+  },
+  {
+    "id": "synthesis-13",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do reduction and scan differ in their outputs despite both combining inputs?",
+    "history": []
+  },
+  {
+    "id": "code_formula-13",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "What is the addition-based inclusive scan of [2, 1, 3, 2]?",
+    "history": []
+  },
+  {
+    "id": "followup-13",
+    "category": "followup",
+    "split": "heldout",
+    "question": "What is the corresponding exclusive scan with identity zero?",
+    "history": [
+      {
+        "role": "user",
+        "content": "What is the addition-based inclusive scan of [2, 1, 3, 2]?"
+      },
+      {
+        "role": "assistant",
+        "content": "[2, 3, 6, 8]"
+      }
+    ]
+  },
+  {
+    "id": "factual-14",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What property of sorted inputs makes parallel merge possible?",
+    "history": []
+  },
+  {
+    "id": "conceptual-14",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why is balancing output partitions useful when parallelizing merge?",
+    "history": []
+  },
+  {
+    "id": "synthesis-14",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do parallel merge and scan both help assign positions without a shared global append counter?",
+    "history": []
+  },
+  {
+    "id": "code_formula-14",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "What sorted sequence results from merging [1, 4, 7] and [2, 3, 8]?",
+    "history": []
+  },
+  {
+    "id": "followup-14",
+    "category": "followup",
+    "split": "heldout",
+    "question": "How many output elements must that merge allocate?",
+    "history": [
+      {
+        "role": "user",
+        "content": "What sorted sequence results from merging [1, 4, 7] and [2, 3, 8]?"
+      },
+      {
+        "role": "assistant",
+        "content": "[1, 2, 3, 4, 7, 8]"
+      }
+    ]
+  },
+  {
+    "id": "factual-15",
+    "category": "factual",
+    "split": "heldout",
+    "question": "Which arrays does compressed sparse row use to represent nonzero values and row boundaries?",
+    "history": []
+  },
+  {
+    "id": "conceptual-15",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can unequal numbers of nonzeros per row hurt a one-thread-per-row sparse kernel?",
+    "history": []
+  },
+  {
+    "id": "synthesis-15",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do CSR storage and sparse matrix-vector multiplication avoid work on explicit zero entries?",
+    "history": []
+  },
+  {
+    "id": "code_formula-15",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "For rowPtrs=[0, 2, 5, 5], how many nonzeros are in row 1?",
+    "history": []
+  },
+  {
+    "id": "followup-15",
+    "category": "followup",
+    "split": "heldout",
+    "question": "How many nonzeros are in row 2 of that same representation?",
+    "history": [
+      {
+        "role": "user",
+        "content": "For rowPtrs=[0, 2, 5, 5], how many nonzeros are in row 1?"
+      },
+      {
+        "role": "assistant",
+        "content": "3"
+      }
+    ]
+  },
+  {
+    "id": "factual-16",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What does a vertex level mean in breadth-first search?",
+    "history": []
+  },
+  {
+    "id": "conceptual-16",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why must parallel BFS coordinate discovery of the same neighbor?",
+    "history": []
+  },
+  {
+    "id": "synthesis-16",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How can frontier organization and sparse adjacency storage cooperate in BFS?",
+    "history": []
+  },
+  {
+    "id": "code_formula-16",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If root A connects to B and B connects to C, with no other path to C, what is C's BFS level?",
+    "history": []
+  },
+  {
+    "id": "followup-16",
+    "category": "followup",
+    "split": "heldout",
+    "question": "If an edge directly from A to C is added, what is C's level?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If root A connects to B and B connects to C, with no other path to C, what is C's BFS level?"
+      },
+      {
+        "role": "assistant",
+        "content": "2"
+      }
+    ]
+  },
+  {
+    "id": "factual-17",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What CUDA mechanism organizes asynchronous operations into ordered sequences?",
+    "history": []
+  },
+  {
+    "id": "conceptual-17",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why does an asynchronous launch require care when measuring elapsed execution time?",
+    "history": []
+  },
+  {
+    "id": "synthesis-17",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How can transfer/compute overlap change the effect of host-device copy overhead?",
+    "history": []
+  },
+  {
+    "id": "code_formula-17",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If a pipeline stage takes 3 ms to copy and 5 ms to compute, what ideal overlapped steady-state period follows ignoring other costs?",
+    "history": []
+  },
+  {
+    "id": "followup-17",
+    "category": "followup",
+    "split": "heldout",
+    "question": "What would the non-overlapped copy-plus-compute time for one chunk be under those assumptions?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If a pipeline stage takes 3 ms to copy and 5 ms to compute, what ideal overlapped steady-state period follows ignoring other costs?"
+      },
+      {
+        "role": "assistant",
+        "content": "5 ms"
+      }
+    ]
+  },
+  {
+    "id": "factual-18",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What does Amdahl's law say limits total application speedup?",
+    "history": []
+  },
+  {
+    "id": "conceptual-18",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can making one kernel much faster have a small effect on the whole application?",
+    "history": []
+  },
+  {
+    "id": "synthesis-18",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How should kernel profiling and host/device transfer accounting guide what to accelerate?",
+    "history": []
+  },
+  {
+    "id": "code_formula-18",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "If 80% of execution is accelerated by 4 times and the remaining 20% is unchanged, what is ideal total speedup?",
+    "history": []
+  },
+  {
+    "id": "followup-18",
+    "category": "followup",
+    "split": "heldout",
+    "question": "What is the infinite-acceleration speedup limit for that same 80% parallelizable fraction?",
+    "history": [
+      {
+        "role": "user",
+        "content": "If 80% of execution is accelerated by 4 times and the remaining 20% is unchanged, what is ideal total speedup?"
+      },
+      {
+        "role": "assistant",
+        "content": "2.5"
+      }
+    ]
+  },
+  {
+    "id": "factual-19",
+    "category": "factual",
+    "split": "heldout",
+    "question": "What capability does CUDA dynamic parallelism add to a device kernel?",
+    "history": []
+  },
+  {
+    "id": "conceptual-19",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can nested or irregular work benefit from device-side kernel launches?",
+    "history": []
+  },
+  {
+    "id": "synthesis-19",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How does dynamic parallelism change the division of control between host launch code and GPU work?",
+    "history": []
+  },
+  {
+    "id": "code_formula-19",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "In a device-side launch child<<<2,64>>>(), how many child threads are requested?",
+    "history": []
+  },
+  {
+    "id": "followup-19",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Does that child launch imply a single 128-thread block?",
+    "history": [
+      {
+        "role": "user",
+        "content": "In a device-side launch child<<<2,64>>>(), how many child threads are requested?"
+      },
+      {
+        "role": "assistant",
+        "content": "128"
+      }
+    ]
+  },
+  {
+    "id": "factual-20",
+    "category": "factual",
+    "split": "heldout",
+    "question": "Why do floating-point results depend on operation order?",
+    "history": []
+  },
+  {
+    "id": "conceptual-20",
+    "category": "conceptual",
+    "split": "heldout",
+    "question": "Why can a parallel sum differ from a sequential sum even when neither implementation has a race?",
+    "history": []
+  },
+  {
+    "id": "synthesis-20",
+    "category": "synthesis",
+    "split": "heldout",
+    "question": "How do reduction-tree scheduling and numerical error need to be considered together?",
+    "history": []
+  },
+  {
+    "id": "code_formula-20",
+    "category": "code_formula",
+    "split": "heldout",
+    "question": "In finite-precision arithmetic, must (a+b)+c equal a+(b+c) for all representable inputs?",
+    "history": []
+  },
+  {
+    "id": "followup-20",
+    "category": "followup",
+    "split": "heldout",
+    "question": "Does that difference alone prove the parallel implementation is incorrect?",
+    "history": [
+      {
+        "role": "user",
+        "content": "In finite-precision arithmetic, must (a+b)+c equal a+(b+c) for all representable inputs?"
+      },
+      {
+        "role": "assistant",
+        "content": "No."
+      }
+    ]
+  },
+  {
+    "id": "unanswerable-01",
+    "category": "unanswerable",
+    "split": "development",
+    "question": "What is my current GPU temperature?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-02",
+    "category": "unanswerable",
+    "split": "development",
+    "question": "What score will I get on my next exam?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-03",
+    "category": "unanswerable",
+    "split": "development",
+    "question": "What is the exact CUDA kernel throughput on my unreported laptop?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-04",
+    "category": "unanswerable",
+    "split": "development",
+    "question": "What is the password for my university account?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-05",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "Who won a sports match yesterday?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-06",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the private API key configured on this computer?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-07",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "Which exercise did my instructor assign this morning?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-08",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the current price of a particular GPU?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-09",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "Which folder contains my private class grading spreadsheet?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-10",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What time is my next university lab session?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-11",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the measured latency of my unseen histogram implementation?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-12",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What are the newest driver release notes published this week?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-13",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What did my study partner say in a private conversation?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-14",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the exact energy use of a kernel that has not been measured?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-15",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What are the answers to the unreleased final examination?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-16",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "Which courses have I registered for next semester?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-17",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the present availability of GPUs at a local shop?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-18",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What are the results of a benchmark run that was never executed?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-19",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What is the current balance of my bank account?",
+    "history": []
+  },
+  {
+    "id": "unanswerable-20",
+    "category": "unanswerable",
+    "split": "heldout",
+    "question": "What does the unpublished next edition change in its scan algorithm?",
+    "history": []
+  }
+]
