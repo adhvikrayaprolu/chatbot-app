@@ -41,7 +41,7 @@ flowchart LR
   Python --> Ollama[Local Ollama models]
 ```
 
-The repository stays flat: `app.py` defines the API, `storage.py` handles persistence, `gpt_handler.py` supplies ordinary chat providers, `knowledge.py` owns document ingestion and grounded answers, and `strategies.py` implements evidence-acquisition methods. `retrieval/` is one Rust crate, not a separate network service. Flask keeps its conventional `templates/` and `static/` directories; `tests/` has meaningful API, native-boundary, browser and evaluator boundaries. Evaluation lives in two root modules and publishes only permitted artifacts under `benchmarks/`.
+The repository stays flat: `app.py` defines the API, `storage.py` handles persistence, `providers.py` supplies ordinary chat providers, `knowledge.py` owns document ingestion and grounded answers, and `strategies.py` implements evidence-acquisition methods. `retrieval/` is one Rust crate, not a separate network service. Flask keeps its conventional `templates/` and `static/` directories; `tests/` has meaningful API, native-boundary, browser and evaluator boundaries. Evaluation lives in two root modules and publishes only permitted artifacts under `benchmarks/`.
 
 Python invokes Rust through a versioned JSON interface with argument arrays, timeouts and structured errors. The engine stores source passages, vectors and FTS5 data in SQLite. PDF extraction records chapter/section titles from document outlines, PDF page numbers, independently detected printed page numbers and extraction warnings. Approximately 500-token chunks overlap by 75 tokens. Embedding caches include the document hash, extraction configuration and model digest.
 

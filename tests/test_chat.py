@@ -6,7 +6,7 @@ import pytest
 from openai import APITimeoutError
 
 from app import create_app
-from gpt_handler import OpenAIProvider, ProviderError
+from providers import OpenAIProvider, ProviderError
 from storage import Conflict, Store
 
 

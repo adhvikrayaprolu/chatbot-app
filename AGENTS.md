@@ -2,7 +2,7 @@
 Maintain independent conversations with a language-model chatbot.
 
 # Architecture
-Flask routes in app.py, owner-scoped SQLite in storage.py, providers in gpt_handler.py,
+Flask routes in app.py, owner-scoped SQLite in storage.py, providers in providers.py,
 private ingestion/grounded answering in knowledge.py, and a local Rust retrieval CLI.
 Vanilla templates/static UI. Never publish private PDF/chunks/vectors/OKF/traces.
 User-approved document intelligence milestones #12, #13, #14 supersede the old

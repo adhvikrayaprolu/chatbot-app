@@ -9,3 +9,5 @@ __pycache__
 retrieval/target
 .private
 benchmarks/private
+web/node_modules
+web/dist

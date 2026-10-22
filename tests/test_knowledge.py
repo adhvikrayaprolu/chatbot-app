@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from app import create_app
-from gpt_handler import ProviderError
 from knowledge import METHODS, Knowledge
+from providers import ProviderError
 from storage import Conflict, NotFound, Store
 
 
@@ -30,8 +30,11 @@ class Models:
     def embed(self, texts):
         return [[1.0, 0.5] for _ in texts]
 
-    def generate(self, messages, schema=None, citation_ids=None):
-        return {'text': 'A barrier synchronizes a block [p1-c0].', 'input_tokens': 10, 'output_tokens': 5}
+    def generate(self, messages, schema=None, citation_ids=None, on_token=None):
+        text = 'A barrier synchronizes a block [p1-c0].'
+        if on_token:
+            on_token(text)
+        return {'text': text, 'input_tokens': 10, 'output_tokens': 5}
 
 
 @pytest.fixture

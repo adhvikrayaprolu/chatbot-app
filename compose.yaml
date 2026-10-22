@@ -3,6 +3,10 @@ services:
     build: .
     ports: ["127.0.0.1:${CHAT_PORT:-5000}:5000"]
     env_file: .env
+    environment:
+      # Ollama runs natively on the host so it can use the GPU; the container reaches it here.
+      OLLAMA_HOST: http://host.docker.internal:11434
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes: ["chat-data:/app/instance"]
 volumes:
   chat-data:

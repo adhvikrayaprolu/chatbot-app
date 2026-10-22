@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -20,8 +21,8 @@ from uuid import uuid4
 import httpx
 from pypdf import PdfReader
 
-from gpt_handler import ProviderError
 from observability import traced
+from providers import ProviderError
 from storage import Conflict, NotFound
 
 ROOT = Path(__file__).parent
@@ -48,6 +49,36 @@ def answer_schema(ids: list[str]) -> dict:
         'citations': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 0},
     }}
     return {'anyOf': [supported, abstained]}
+
+
+class AnswerField:
+    """Decodes the JSON "answer" string while the model is still producing it."""
+    ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', 'b': '\b', 'f': '\f'}
+
+    def __init__(self):
+        self.sent = 0
+
+    def feed(self, raw: str) -> str:
+        match = re.search(r'"answer"\s*:\s*"', raw)
+        if not match:
+            return ''
+        body, out, i = raw[match.end():], [], 0
+        while i < len(body) and body[i] != '"':
+            if body[i] == '\\':
+                if i + 1 >= len(body) or (body[i + 1] == 'u' and i + 6 > len(body)):
+                    break
+                if body[i + 1] == 'u':
+                    out.append(chr(int(body[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                out.append(self.ESCAPES.get(body[i + 1], body[i + 1]))
+                i += 2
+                continue
+            out.append(body[i])
+            i += 1
+        text = ''.join(out)
+        delta, self.sent = text[self.sent:], len(text)
+        return delta
 
 
 class LocalModels:
@@ -81,7 +112,8 @@ class LocalModels:
         return self.request('/api/embed', {'model': self.embedding, 'input': texts, 'truncate': False})['embeddings']
 
     @traced('generate', 'generation')
-    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None) -> dict:
+    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None,
+                 on_token: Callable[[str], None] | None = None) -> dict:
         # LangChain provides the local model adapter; graph control remains explicit.
         from langchain_ollama import ChatOllama
         model: Any = ChatOllama(model=self.model, base_url=self.host, temperature=0, num_ctx=8192,
@@ -96,7 +128,17 @@ class LocalModels:
             safe_messages.insert(0, ('system', 'Return JSON matching this schema: ' + json.dumps(response_schema) + '. Output only the final result, never analysis or thinking.'))
             safe_messages[-1] = (safe_messages[-1][0], safe_messages[-1][1] + '\n/no_think')
             with tracing_context(enabled=False):
-                response = model.invoke(safe_messages)
+                if on_token is None:
+                    response = model.invoke(safe_messages)
+                else:
+                    response, field = None, AnswerField()
+                    for chunk in model.stream(safe_messages):
+                        response = chunk if response is None else response + chunk
+                        delta = field.feed(str(response.content))
+                        if delta:
+                            on_token(delta)
+                    if response is None:
+                        raise ProviderError('Model returned no output.', 502)
             usage: dict = response.usage_metadata or {}
             text = str(response.content)
             if '</think>' in text:
@@ -331,23 +373,27 @@ class Knowledge:
         self.jobs[did] = self.worker.submit(self.ingest, did, source)
 
     @traced('answer', 'chain')
-    def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag', evidence: list | None = None) -> dict:
+    def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag',
+               evidence: list | None = None, emit: Callable[[str, dict], None] | None = None) -> dict:
         if method not in METHODS:
             raise ValueError('Unsupported answering method')
         self.ready(owner, did)
         start = time.perf_counter()
+        notify = emit or (lambda event, data: None)
         acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'load_seconds': 0, 'steps': []}
         if evidence is not None:
             hits = evidence
         elif method == 'rag':
             hits = self.search(owner, did, question)
-            acquired['steps'] = ['Retrieved evidence']
+            acquired['steps'] = [f'Retrieved {len(hits)} passages with hybrid search']
+            notify('step', {'label': acquired['steps'][0]})
         else:
             from strategies import STRATEGIES
-            acquired = STRATEGIES[method](self, owner, did, question, history or [])
+            acquired = STRATEGIES[method](self, owner, did, question, history or [], lambda label: notify('step', {'label': label}))
             hits = acquired['evidence']
         selected = self.select_evidence(hits)
         count = self.tokens.count(self.context(selected))
+        notify('evidence', {'passages': [{'id': h['id'], 'page': h.get('page'), 'section': h.get('section')} for h in selected]})
         if not selected:
             result: dict[str, Any] = {'text': 'Insufficient evidence in this document.', 'input_tokens': 0, 'output_tokens': 0}
         else:
@@ -363,7 +409,9 @@ class Knowledge:
                 history_tokens += size
             messages.extend(recent)
             messages.append({'role': 'user', 'content': f'Question: {question}\n<evidence>\n{context}\n</evidence>'})
-            result = self.models.generate(messages, None, [h['id'] for h in selected])
+            ids = [h['id'] for h in selected]
+            result = (self.models.generate(messages, None, ids, on_token=lambda text: notify('token', {'text': text}))
+                      if emit else self.models.generate(messages, None, ids))
         allowed = {h['id']: h for h in selected}
         ids = re.findall(r'\[(p\d+-c\d+)\]', result['text'])
         invalid = [cid for cid in ids if cid not in allowed]

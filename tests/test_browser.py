@@ -19,7 +19,7 @@ from tests.test_knowledge import Models, Tokens  # noqa: E402
 
 
 class BrowserModels(Models):
-    def generate(self, messages, schema=None, citation_ids=None):
+    def generate(self, messages, schema=None, citation_ids=None, on_token=None):
         if schema:
             properties = schema['properties']
             if 'query' in properties:
@@ -27,10 +27,9 @@ class BrowserModels(Models):
             elif 'sufficient' in properties:
                 value = {'sufficient': True}
             else:
-                index = messages[-1]['content']
-                value = {'ids': ['group-0' if 'Source indexes:' in index else 'p1-c0']}
+                value = {'ids': ['s0' if 'Table of contents:' in messages[-1]['content'] else 'p1-c0']}
             return {'text': json.dumps(value), 'input_tokens': 10, 'output_tokens': 5}
-        return super().generate(messages)
+        return super().generate(messages, on_token=on_token)
 
 
 @pytest.fixture
@@ -54,42 +53,51 @@ def test_study_flow_keyboard_comparison_and_mobile(browser_server, tmp_path):
         page = browser.new_page()
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
+        page.on('console', lambda message: message.type == 'error' and errors.append(message.text))
         page.goto(browser_server)
-        expect(page.locator('#send')).to_be_enabled()
-        page.get_by_role('button', name='Try original GPU notes').click()
-        expect(page.locator('#documentStatus')).to_contain_text('ready', timeout=15000)
-        page.locator('#message').fill('What is a barrier?')
-        page.locator('#message').press('Enter')
-        expect(page.locator('#messages')).to_contain_text('A barrier synchronizes')
-        page.get_by_role('button', name='p1-c0 · PDF page 1').click()
-        expect(page.locator('#sourceDialog')).to_be_visible()
-        expect(page.locator('#sourceText')).to_contain_text('GPU')
-        page.keyboard.press('Escape')
-        expect(page.locator('#sourceDialog')).not_to_be_visible()
+        message = page.get_by_label('Message')
+        # Ordinary chat streams from the offline provider.
+        message.fill('Hello there')
+        message.press('Enter')
+        expect(page.locator('.message.assistant')).to_contain_text('You said: Hello there')
+        expect(page.get_by_role('navigation', name='Saved conversations').get_by_role('button')).to_have_count(1)
+        # Import the demo notes, ground the conversation and inspect a citation.
+        page.get_by_role('button', name='Try GPU demo notes').click()
+        expect(page.locator('.doc.ready')).to_have_count(1, timeout=15000)
+        page.get_by_role('combobox').select_option(label='GPU Study Notes (original demo)')
+        page.get_by_role('radio', name='Agent').click()
+        message.fill('What is a barrier?')
+        message.press('Enter')
+        answer = page.locator('.message.assistant').last
+        expect(answer).to_contain_text('A barrier synchronizes')
+        expect(answer.locator('.trace summary')).to_contain_text('Agent')
+        answer.get_by_role('button', name='Source 1: p1-c0').click()
+        expect(page.get_by_role('complementary', name='Source passage')).to_contain_text('GPU')
+        page.get_by_role('button', name='Close source').click()
+        # Grounded metadata survives a reload.
         page.reload()
-        expect(page.get_by_role('button', name='p1-c0 · PDF page 1')).to_be_visible()
-        # Source selection is deliberately independent of persisted chat messages.
-        page.locator('#document').select_option(index=1)
-        page.locator('#message').fill('Does a barrier synchronize separate blocks?')
-        page.get_by_role('button', name='Compare methods', exact=True).click()
-        expect(page.locator('#comparisonDialog')).to_be_visible(timeout=15000)
-        expect(page.locator('.comparisonCard')).to_have_count(3)
-        expect(page.locator('#messages article')).to_have_count(2)
+        expect(page.locator('.message.assistant').last.get_by_role('button', name='Source 1: p1-c0')).to_be_visible()
+        # Comparisons run every method without touching the chat.
+        message.fill('Does a barrier synchronize separate blocks?')
+        page.get_by_role('button', name='Compare methods').click()
+        expect(page.locator('.compare-card')).to_have_count(5, timeout=15000)
+        expect(page.locator('.thread article')).to_have_count(4)
         page.keyboard.press('Escape')
-        page.locator('#message').fill('Line one')
-        page.locator('#message').press('Shift+Enter')
-        expect(page.locator('#message')).to_have_value('Line one\n')
+        message.fill('Line one')
+        message.press('Shift+Enter')
+        expect(message).to_have_value('Line one\n')
+        # Narrow screens: no horizontal overflow, menu reachable.
         page.set_viewport_size({'width': 390, 'height': 844})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.get_by_role('button', name='Open menu').click()
+        page.get_by_role('button', name='Remove GPU Study Notes (original demo)').click()
         page.get_by_role('button', name='Remove source', exact=True).click()
-        page.get_by_role('button', name='Remove source', exact=True).last.click()
-        expect(page.locator('#documentStatus')).to_contain_text('Ordinary conversation')
+        expect(page.locator('.doc')).to_have_count(0)
+        # A broken PDF fails visibly and offers retry.
         bad = tmp_path / 'invalid.pdf'
         bad.write_bytes(b'invalid PDF')
-        page.locator('#pdfFile').set_input_files(str(bad))
-        page.get_by_role('button', name='Import PDF', exact=True).click()
-        expect(page.locator('#documentStatus')).to_contain_text('failed', timeout=15000)
-        expect(page.get_by_role('button', name='Retry import')).to_be_enabled()
-        expect(page.locator('#send')).to_be_disabled()
+        page.locator('#pdf-file').set_input_files(str(bad))
+        expect(page.locator('.doc.failed')).to_have_count(1, timeout=15000)
+        expect(page.get_by_role('button', name='Retry')).to_be_visible()
         assert errors == []
         browser.close()
