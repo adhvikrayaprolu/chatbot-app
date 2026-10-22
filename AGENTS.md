@@ -6,13 +6,13 @@ Flask routes in app.py, owner-scoped SQLite in storage.py, providers in gpt_hand
 private ingestion/grounded answering in knowledge.py, and a local Rust retrieval CLI.
 Vanilla templates/static UI. Never publish private PDF/chunks/vectors/OKF/traces.
 User-approved document intelligence milestones #12, #13, #14 supersede the old
-readiness-only scope. Preserve existing chat and avoid duplicating Compose PR #11.
+readiness-only scope. Preserve existing chat.
 
 # Local Development
 Follow the verified root README workflow. Root Makefiles coordinate Python/React environments where present; Spring defaults to persistent local H2; Android needs JDK17 and an explicit SDK path. Do not use source-level credentials or mutate live Firebase.
 
 # Validation
-Canonical setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
+Recommended startup: copy `.env.example` to `.env`, then `docker compose up --build --wait --wait-timeout 90`. Native setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
 
 # Frontend Rules
 Keep the native stack (JSP, vanilla HTML or Android Java/XML). Preserve keyboard/accessibility, loading/error/empty states; do not migrate to React.
