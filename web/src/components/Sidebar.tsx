@@ -32,7 +32,7 @@ export function Sidebar(props: Props) {
     <aside className={`sidebar${props.open ? ' open' : ''}`} aria-label="Conversations and library">
       <div className="brand">
         <span className="logo" aria-hidden>◆</span>
-        <span>Document Intelligence</span>
+        <span>Lookup</span>
         <button type="button" className="icon close-sidebar" aria-label="Close menu" onClick={props.onClose}>×</button>
       </div>
       <button type="button" className="primary block" onClick={props.onNew} disabled={props.busy}>+ New chat</button>

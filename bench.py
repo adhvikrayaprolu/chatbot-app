@@ -18,11 +18,14 @@ aggregate-only ``benchmarks/leaderboard.{md,json}``; answers and passages stay i
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import statistics
 import time
 from pathlib import Path
 
 from evaluation import PRIVATE, PUBLIC, baseline, journal, knowledge, questions, read, require_service, rows, save
+from knowledge import create_models
 from strategies import STRATEGIES, decision
 
 OWNER = "local-evaluation"
@@ -40,12 +43,21 @@ GRADE = {
 }
 
 
-def journal_path(track: str) -> Path:
-    return PRIVATE / f"bench-{track}.jsonl"
+def slug(name: str) -> str:
+    if name == "ollama":
+        name = "ollama:" + os.getenv("LOCAL_CHAT_MODEL", "qwen3:4b")
+    return re.sub(r"[^A-Za-z0-9.-]+", "_", name)
 
 
-def corpus():
+def journal_path(track: str, generator: str, judge: str | None = None) -> Path:
+    """One journal per model setup so runs with different generators never mix."""
+    suffix = f"@{slug(generator)}" + (f"@judge-{slug(judge)}" if judge else "")
+    return PRIVATE / f"bench-{track}{suffix}.jsonl"
+
+
+def corpus(generator: str):
     k = knowledge()
+    k.models = create_models(generator)
     did = (PRIVATE.parent / "textbook-id.txt").read_text().strip()
     annotations = {a["id"]: a for a in read(PRIVATE / "annotations.json")}
     return k, did, annotations
@@ -58,10 +70,10 @@ def evidence_for(k, did: str, q: dict, method: str) -> tuple[list[dict], dict]:
     return acquired["evidence"], acquired
 
 
-def retrieval(split: str, methods: list[str], limit: int | None = None):
-    k, did, annotations = corpus()
+def retrieval(split: str, methods: list[str], limit: int | None, generator: str, judge: str):
+    k, did, annotations = corpus(generator)
     require_service(k)
-    path = journal_path("retrieval")
+    path = journal_path("retrieval", generator)
     done = {(r["id"], r["method"]) for r in rows(path)}
     cases = [q for q in questions(None if split == "all" else split) if not annotations[q["id"]]["unanswerable"]][:limit]
     for q in cases:
@@ -90,13 +102,13 @@ def retrieval(split: str, methods: list[str], limit: int | None = None):
             print("retrieval", q["id"], method, record["status"], f"{record['seconds']:.1f}s", flush=True)
 
 
-def grade(k, q: dict, annotation: dict, result: dict) -> dict:
+def grade(judge, q: dict, annotation: dict, result: dict) -> dict:
     reply = result["reply"]
     abstained = reply.startswith("Insufficient evidence")
     if annotation["unanswerable"] or abstained:
         return {"correct": abstained == annotation["unanswerable"], "judged": False}
     verdict, _ = decision(
-        k.models,
+        judge,
         "Grade a study assistant's answer against the reference answer. Judge only whether the answer is correct; ignore citation markers.",
         f"Question: {q['question']}\nReference answer: {annotation['reference']}\nAssistant answer: {reply}",
         GRADE,
@@ -104,11 +116,12 @@ def grade(k, q: dict, annotation: dict, result: dict) -> dict:
     return {"correct": bool(verdict.get("correct")), "judged": True}
 
 
-def answers(split: str, methods: list[str], limit: int | None = None):
-    k, did, annotations = corpus()
+def answers(split: str, methods: list[str], limit: int | None, generator: str, judge: str):
+    k, did, annotations = corpus(generator)
     require_service(k)
+    grader = k.models if judge == generator else create_models(judge)
     chunks = {c["id"]: c for c in k.chunks(OWNER, did)}
-    path = journal_path("answers")
+    path = journal_path("answers", generator, judge)
     done = {(r["id"], r["method"]) for r in rows(path)}
     for q in questions(None if split == "all" else split)[:limit]:
         annotation = annotations[q["id"]]
@@ -129,7 +142,7 @@ def answers(split: str, methods: list[str], limit: int | None = None):
                     tokens=result["input_tokens"] + result["output_tokens"],
                     abstained=result["reply"].startswith("Insufficient evidence"),
                     citation_precision=(sum(c["page"] in pages for c in cited) / len(cited)) if cited and pages else None,
-                    **grade(k, q, annotation, result),
+                    **grade(grader, q, annotation, result),
                 )
             except Exception as error:
                 require_service(k)
@@ -163,38 +176,52 @@ def summarize(records: list[dict], method: str, fields: list[str]) -> dict:
     return summary
 
 
-def report():
-    def latest(track):
-        # Keep the most recent record for each case so a rerun replaces, never double counts.
-        return list({(r["id"], r["method"]): r for r in rows(journal_path(track))}.values())
-
-    retrieval_rows, answer_rows = latest("retrieval"), latest("answers")
-    data = {
-        "retrieval": [summarize(retrieval_rows, m, ["recall", "page_hit", "rr"]) for m in RETRIEVAL if any(r["method"] == m for r in retrieval_rows)],
-        "answers": [summarize(answer_rows, m, ["correct", "citation_precision"]) for m in ANSWERS if any(r["method"] == m for r in answer_rows)],
-        "configuration": read(PUBLIC / "configuration.json") if (PUBLIC / "configuration.json").exists() else {},
-    }
-    save(PUBLIC / "leaderboard.json", data)
-    lines = ["# Leaderboard", "", "Generated by `python bench.py report` from private run journals. "
-             "Every method uses the same local generator, prompt and 3,072-token evidence budget.", ""]
-    if data["retrieval"]:
-        n = max(s["n"] for s in data["retrieval"])
-        lines += [f"## Retrieval ({n} answerable questions)", "",
+def table(lines: list[str], retrieval_summary: list[dict], answer_summary: list[dict]):
+    if retrieval_summary:
+        n = max(s["n"] for s in retrieval_summary)
+        lines += [f"### Retrieval ({n} answerable questions)", "",
                   "| Method | Passage recall | Gold page hit | MRR | Model calls | p50 s | p90 s |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
-        for s in sorted(data["retrieval"], key=lambda s: -(s["page_hit"] or 0)):
+        for s in sorted(retrieval_summary, key=lambda s: -(s["page_hit"] or 0)):
             lines.append(f"| {s['label']} | {s['recall']:.3f} | {s['page_hit']:.3f} | {s['rr']:.3f} | {s['mean_calls']:.1f} | {s['p50_seconds']} | {s['p90_seconds']} |")
         lines.append("")
-    if data["answers"]:
-        n = max(s["n"] for s in data["answers"])
-        lines += [f"## Answers ({n} questions incl. unanswerable)", "",
+    if answer_summary:
+        n = max(s["n"] for s in answer_summary)
+        lines += [f"### Answers ({n} questions incl. unanswerable)", "",
                   "| Method | Correct | Citation precision | Model calls | Tokens | p50 s | p90 s | Failed |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
-        for s in sorted(data["answers"], key=lambda s: -(s["correct"] or 0)):
+        for s in sorted(answer_summary, key=lambda s: -(s["correct"] or 0)):
             precision = "—" if s["citation_precision"] is None else f"{s['citation_precision']:.3f}"
             lines.append(f"| {s['label']} | {s['correct']:.3f} | {precision} | {s['mean_calls']:.1f} | {s['mean_tokens']:.0f} | {s['p50_seconds']} | {s['p90_seconds']} | {s['failed']} |")
-        categories = sorted({c for s in data["answers"] for c in s["by_category"]})
-        lines += ["", "### Correctness by question type", "", "| Method | " + " | ".join(categories) + " |", "| --- |" + " ---: |" * len(categories)]
-        for s in data["answers"]:
+        categories = sorted({c for s in answer_summary for c in s["by_category"]})
+        lines += ["", "Correctness by question type:", "", "| Method | " + " | ".join(categories) + " |", "| --- |" + " ---: |" * len(categories)]
+        for s in answer_summary:
             lines.append(f"| {s['label']} | " + " | ".join(f"{s['by_category'].get(c, 0):.2f}" for c in categories) + " |")
+        lines.append("")
+
+
+def report():
+    def latest(path):
+        # Keep the most recent record for each case so a rerun replaces, never double counts.
+        return list({(r["id"], r["method"]): r for r in rows(path)}.values())
+
+    setups: dict[str, dict] = {}
+    for path in sorted(PRIVATE.glob("bench-*@*.jsonl")):
+        track, generator, *judge = path.stem.split("@")
+        setup = setups.setdefault(generator, {"generator": generator, "retrieval": [], "answers": {}})
+        records = latest(path)
+        if track == "bench-retrieval":
+            setup["retrieval"] = [summarize(records, m, ["recall", "page_hit", "rr"]) for m in RETRIEVAL if any(r["method"] == m for r in records)]
+        else:
+            setup["answers"][judge[0].removeprefix("judge-")] = [
+                summarize(records, m, ["correct", "citation_precision"]) for m in ANSWERS if any(r["method"] == m for r in records)]
+    save(PUBLIC / "leaderboard.json", {"setups": list(setups.values())})
+    lines = ["# Leaderboard", "", "Generated by `python bench.py report` from private run journals. Within a setup every method "
+             "shares the generator, prompt and 3,072-token evidence budget; only evidence acquisition differs.", ""]
+    for setup in setups.values():
+        lines += [f"## Generator: `{setup['generator']}`", ""]
+        table(lines, setup["retrieval"], [])
+        for judge, summary in setup["answers"].items():
+            lines += [f"Judge: `{judge}`", ""]
+            table(lines, [], summary)
     (PUBLIC / "leaderboard.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
@@ -205,11 +232,13 @@ def main():
     parser.add_argument("--split", default="all", choices=["all", "development", "heldout"])
     parser.add_argument("--methods", help="comma-separated subset")
     parser.add_argument("--limit", type=int, help="first N questions only (smoke runs)")
+    parser.add_argument("--generator", default=os.getenv("GENERATOR", "ollama"), help="ollama or cursor:<model>")
+    parser.add_argument("--judge", help="grader for the answer track; defaults to the generator")
     args = parser.parse_args()
     if args.track == "report":
         return report()
     methods = args.methods.split(",") if args.methods else (RETRIEVAL if args.track == "retrieval" else ANSWERS)
-    (retrieval if args.track == "retrieval" else answers)(args.split, methods, args.limit)
+    (retrieval if args.track == "retrieval" else answers)(args.split, methods, args.limit, args.generator, args.judge or args.generator)
 
 
 if __name__ == "__main__":

@@ -23,8 +23,9 @@ adds one idea, a hypothesis, and the benchmark that would confirm or kill it.
 | **Contextual chunk headers**: prefix each chunk with its outline path ("Ch. 5 › 5.2 CUDA memory types") before BM25 and embedding; optionally a one-sentence model-written situating line | Fixes chunks that are ambiguous out of context; published results show large drops in retrieval misses | Retrieval track, all strategies, before/after |
 | **Cross-encoder reranker** (e.g. bge-reranker-v2-m3) instead of the LLM listwise rerank | Same precision gain at about a tenth of the latency | Recall/MRR vs `rerank`, p50 latency |
 | **Neighbor expansion**: add the previous/next chunk of each hit while budget allows | Answers split across a chunk boundary stop failing | Gold-page hit rate on synthesis and code questions |
-| **Stronger, calibrated judge**: grade with a larger model than the generator, calibrated on the pinned RAGBench sample | Removes self-grading bias from the 4B judge | Judge agreement with RAGBench labels |
+| **Stronger, calibrated judge**: grade with a frontier model through the Cursor backend (`--judge cursor:<model>`), calibrated on the pinned RAGBench sample | Removes self-grading bias from the 4B judge | Judge agreement with RAGBench labels |
 | **Finish the held-out split** (96 questions × 3 repeats) | Development conclusions hold on unseen questions | Paired bootstrap intervals |
+| **Frontier generator** (`--generator cursor:<model>`) | A stronger model narrows the gap between strategies, or reorders them | Same leaderboard, second generator |
 
 ## Phase 2: search as tool use (headline experiment)
 

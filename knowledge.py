@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -81,6 +82,37 @@ class AnswerField:
         return delta
 
 
+def output_schema(schema: dict | None, citation_ids: list[str] | None) -> dict:
+    if citation_ids is not None:
+        return answer_schema(citation_ids)
+    return schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
+
+
+def finish(text: str, schema: dict | None, citation_ids: list[str] | None) -> str:
+    """Strip reasoning, then enforce the answer/citation contract for any backend."""
+    if '</think>' in text:
+        text = text.rsplit('</think>', 1)[1].strip()
+    elif '<think>' in text:
+        raise ProviderError('Model did not finish a public answer.', 502)
+    if schema is not None:
+        return text
+    parsed = json.loads(text)
+    answer = parsed['answer']
+    if not isinstance(answer, str) or not answer.strip():
+        raise ProviderError('Model returned an empty final answer.', 502)
+    if citation_ids is not None:
+        citations = parsed.get('citations')
+        if (not isinstance(citations, list) or any(not isinstance(cid, str) or cid not in citation_ids for cid in citations)
+                or (citation_ids and not citations and not answer.startswith('Insufficient evidence'))
+                or (answer.startswith('Insufficient evidence') and citations)):
+            raise ProviderError('Model returned invalid structured citations.', 502)
+        existing = set(re.findall(r'\[(p\d+-c\d+)\]', answer))
+        missing = [cid for cid in dict.fromkeys(citations) if cid not in existing]
+        if missing:
+            answer = answer.rstrip() + ' ' + ' '.join(f'[{cid}]' for cid in missing)
+    return answer
+
+
 class LocalModels:
     def __init__(self, host: str = 'http://127.0.0.1:11434'):
         # The corpus must never be sent to an arbitrary remote model endpoint.
@@ -118,9 +150,7 @@ class LocalModels:
         from langchain_ollama import ChatOllama
         model: Any = ChatOllama(model=self.model, base_url=self.host, temperature=0, num_ctx=8192,
                            num_predict=1024, reasoning=False, client_kwargs={'timeout': 180})
-        response_schema = schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
-        if citation_ids is not None:
-            response_schema = answer_schema(citation_ids)
+        response_schema = output_schema(schema, citation_ids)
         model = model.bind(format=response_schema)
         try:
             from langsmith import tracing_context
@@ -140,31 +170,63 @@ class LocalModels:
                     if response is None:
                         raise ProviderError('Model returned no output.', 502)
             usage: dict = response.usage_metadata or {}
-            text = str(response.content)
-            if '</think>' in text:
-                text = text.rsplit('</think>', 1)[1].strip()
-            elif '<think>' in text:
-                raise ProviderError('Model did not finish a public answer.', 502)
-            if schema is None:
-                parsed = json.loads(text)
-                text = parsed['answer']
-                if not isinstance(text, str) or not text.strip():
-                    raise ProviderError('Model returned an empty final answer.', 502)
-                if citation_ids is not None:
-                    citations = parsed.get('citations')
-                    if (not isinstance(citations, list) or any(not isinstance(cid, str) or cid not in citation_ids for cid in citations)
-                            or (citation_ids and not citations and not text.startswith('Insufficient evidence'))
-                            or (text.startswith('Insufficient evidence') and citations)):
-                        raise ProviderError('Model returned invalid structured citations.', 502)
-                    existing = set(re.findall(r'\[(p\d+-c\d+)\]', text))
-                    missing = [cid for cid in dict.fromkeys(citations) if cid not in existing]
-                    if missing:
-                        text = text.rstrip() + ' ' + ' '.join(f'[{cid}]' for cid in missing)
+            text = finish(str(response.content), schema, citation_ids)
             return {'text': text, 'input_tokens': usage.get('input_tokens', 0),
                     'output_tokens': usage.get('output_tokens', 0),
                     'load_seconds': (response.response_metadata or {}).get('load_duration', 0) / 1e9}
         except Exception as error:
             raise ProviderError('Local generation failed. Check Ollama/model readiness and retry.', 503) from error
+
+
+class CursorModels(LocalModels):
+    """Generation through the Cursor CLI's headless mode, billed to the user's Cursor plan.
+
+    Embeddings and search stay on local Ollama; only the prompt for each generation call
+    (question plus selected passages) leaves the machine. Choosing this backend is the opt-in.
+    """
+
+    def __init__(self, host: str, model: str):
+        super().__init__(host)
+        self.model = model
+        self.workspace = Path(tempfile.mkdtemp(prefix='cursor-generation-'))  # empty: nothing for the agent to read
+
+    def digest(self, name: str) -> str:
+        return f'cursor:{name}' if name == self.model else super().digest(name)
+
+    @traced('generate', 'generation')
+    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None,
+                 on_token: Callable[[str], None] | None = None) -> dict:
+        response_schema = output_schema(schema, citation_ids)
+        prompt = ('You are a text-only function. Do not use tools, run commands or read files. '
+                  'Reply with one JSON object matching this schema and nothing else:\n'
+                  + json.dumps(response_schema) + '\n\n'
+                  + '\n\n'.join(f"{m['role'].upper()}:\n{m['content']}" for m in messages))
+        command = [os.getenv('CURSOR_AGENT_BIN', 'cursor-agent'), '-p', '--output-format', 'json', '-m', self.model, prompt]
+        try:
+            result = subprocess.run(command, cwd=self.workspace, capture_output=True, text=True, timeout=300, check=True)
+            raw = json.loads(result.stdout)
+            body = raw.get('result') or raw.get('text') or ''
+            match = re.search(r'\{.*\}', body, re.S)  # tolerate Markdown fences around the JSON
+            text = finish(match.group(0) if match else body, schema, citation_ids)
+        except ProviderError:
+            raise
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError) as error:
+            raise ProviderError('Cursor generation failed. Check `cursor-agent status` and your plan usage.', 503) from error
+        if on_token:
+            on_token(text)
+        usage = raw.get('usage') or {}
+        return {'text': text, 'input_tokens': usage.get('input_tokens', 0), 'output_tokens': usage.get('output_tokens', 0)}
+
+
+def create_models(generator: str | None = None):
+    """`GENERATOR=ollama` (default) or `cursor:<model>`, e.g. `cursor:claude-4.5-sonnet`."""
+    host = os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434')
+    generator = generator or os.getenv('GENERATOR') or 'ollama'
+    if generator.startswith('cursor:'):
+        return CursorModels(host, generator.split(':', 1)[1])
+    if generator != 'ollama':
+        raise ValueError('GENERATOR must be ollama or cursor:<model>.')
+    return LocalModels(host)
 
 
 class TokenBudget:
@@ -201,7 +263,7 @@ class Knowledge:
     def __init__(self, store, directory: Path, models=None, tokens=None):
         self.store, self.directory = store, Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.models = models or LocalModels(os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434'))
+        self.models = models or create_models()
         self._tokens = tokens
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='document-index')
         self.lock = threading.RLock()
