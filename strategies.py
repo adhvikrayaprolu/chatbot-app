@@ -9,8 +9,8 @@ from typing import Any, TypedDict
 import yaml
 from langgraph.graph import END, START, StateGraph
 
-from gpt_handler import ProviderError
 from observability import traced
+from providers import ProviderError
 
 QUERY_SCHEMA = {'type': 'object', 'properties': {'query': {'type': 'string'}}, 'required': ['query']}
 GRADE_SCHEMA = {'type': 'object', 'properties': {'sufficient': {'type': 'boolean'}}, 'required': ['sufficient']}
@@ -55,7 +55,8 @@ def add_usage(state: Any, response: dict):
 
 
 @traced('agentic-retrieval', 'agent')
-def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
+def agentic(k, owner: str, did: str, question: str, history: list, step=None) -> dict:
+    step = step or (lambda label: None)
     def query(state: State):
         data = state['question'] + '\nRecent conversation:\n' + state['history']
         if state['rounds']:
@@ -66,7 +67,8 @@ def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
             raise ProviderError('Invalid search query decision.', 502)
         state['query'] = value
         add_usage(state, usage)
-        state['steps'].append('Planned query' if not state['rounds'] else 'Rewrote query')
+        state['steps'].append(('Planned query: ' if not state['rounds'] else 'Rewrote query: ') + value)
+        step(state['steps'][-1])
         return state
 
     def retrieve(state: State):
@@ -75,7 +77,9 @@ def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
         found = {h['id']: h for h in state['evidence'] + hits}
         state['evidence'] = list(found.values())
         state['rounds'] += 1
-        state['steps'].append(f"Retrieved round {state['rounds']}")
+        plural = '' if len(hits) == 1 else 's'
+        state['steps'].append(f"Retrieved {len(hits)} passage{plural} (round {state['rounds']})")
+        step(state['steps'][-1])
         return state
 
     def assess(state: State):
@@ -86,7 +90,8 @@ def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
             raise ProviderError('Invalid evidence assessment.', 502)
         state['sufficient'] = parsed['sufficient']
         add_usage(state, usage)
-        state['steps'].append('Checked evidence sufficiency')
+        state['steps'].append('Evidence sufficient' if state['sufficient'] else 'Evidence insufficient')
+        step(state['steps'][-1])
         return state
 
     graph = StateGraph(State)
@@ -188,7 +193,7 @@ def contents_table(nodes: list[dict]) -> str:
     return '\n'.join('  ' * n['depth'] + f"{n['id']} {n['title']}" for n in nodes if n['depth'] <= 1)
 
 
-def choose_sections(k, owner: str, did: str, question: str, history: list, state: dict) -> tuple[list[dict], list[dict]]:
+def choose_sections(k, owner: str, did: str, question: str, history: list, state: dict, step) -> tuple[list[dict], list[dict]]:
     """One model call over the document's table of contents; returns (chunks, chosen sections)."""
     chunks = k.chunks(owner, did)
     doc = k.document(owner, did)
@@ -208,6 +213,7 @@ def choose_sections(k, owner: str, did: str, question: str, history: list, state
         raise ProviderError('Invalid OKF section selection.', 502)
     sections = [allowed[i] for i in dict.fromkeys(ids)]
     state['steps'].append('Navigated table of contents: ' + '; '.join(n['title'] for n in sections))
+    step(state['steps'][-1])
     return chunks, sections
 
 
@@ -216,10 +222,11 @@ def usage_state() -> dict[str, Any]:
 
 
 @traced('okf-navigation', 'tool')
-def okf(k, owner: str, did: str, question: str, history: list) -> dict:
+def okf(k, owner: str, did: str, question: str, history: list, step=None) -> dict:
     """Pure navigation: table of contents -> passage index -> passages. No vector search."""
     state = usage_state()
-    chunks, sections = choose_sections(k, owner, did, question, history, state)
+    step = step or (lambda label: None)
+    chunks, sections = choose_sections(k, owner, did, question, history, state, step)
     wanted = {cid for n in sections for cid in n['ids']}
     candidates = [c for c in chunks if c['id'] in wanted]
     if candidates:
@@ -233,6 +240,7 @@ def okf(k, owner: str, did: str, question: str, history: list) -> dict:
             table = '\n'.join(f"{c['id']}: PDF {c['page']}; {' '.join(c['text'][:60].split())}" for c in candidates)
         state['evidence'] = pick_passages(k, question, table, candidates, state)
         state['steps'].append(f'Opened {len(state["evidence"])} passages from {len(candidates)} in scope')
+        step(state['steps'][-1])
     return state
 
 
@@ -248,29 +256,34 @@ def pick_passages(k, question: str, table: str, candidates: list[dict], state: d
 
 
 @traced('scoped-retrieval', 'retriever')
-def scoped(k, owner: str, did: str, question: str, history: list) -> dict:
+def scoped(k, owner: str, did: str, question: str, history: list, step=None) -> dict:
     """Structure-aware retrieval: the model picks sections from the outline, hybrid search ranks inside them."""
     state = usage_state()
-    _, sections = choose_sections(k, owner, did, question, history, state)
+    step = step or (lambda label: None)
+    _, sections = choose_sections(k, owner, did, question, history, state, step)
     scope = {cid for n in sections for cid in n['ids']}
     hits = k.search(owner, did, question, limit=50)
     inside = [h for h in hits if h['id'] in scope]
     # Fall back to unscoped hits so a wrong section choice degrades to plain RAG rather than nothing.
     state['evidence'] = (inside + [h for h in hits if h['id'] not in scope])[:5]
     state['steps'].append(f'Ranked {len(inside)} in-scope passages with hybrid search')
+    step(state['steps'][-1])
     return state
 
 
 @traced('rerank-retrieval', 'retriever')
-def rerank(k, owner: str, did: str, question: str, history: list) -> dict:
+def rerank(k, owner: str, did: str, question: str, history: list, step=None) -> dict:
     """Wide hybrid recall, then one listwise model call keeps the five most relevant passages."""
     state = usage_state()
+    step = step or (lambda label: None)
     candidates = k.search(owner, did, question, limit=20)
-    state['steps'].append(f'Retrieved {len(candidates)} candidates')
+    state['steps'].append(f'Retrieved {len(candidates)} candidates with hybrid search')
+    step(state['steps'][-1])
     if candidates:
         table = '\n'.join(f"{c['id']}: PDF {c['page']}; {c['section']}; {' '.join(c['text'][:240].split())}" for c in candidates)
         state['evidence'] = pick_passages(k, question, table, candidates, state)
         state['steps'].append(f'Reranked to {len(state["evidence"])} passages')
+        step(state['steps'][-1])
     return state
 
 

@@ -2,28 +2,34 @@
 import fcntl
 import json
 import os
+import queue
 import secrets
 import sqlite3
+import threading
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, Response, jsonify, request, send_from_directory, session, stream_with_context
 from werkzeug.exceptions import HTTPException
 
-from gpt_handler import SYSTEM_PROMPT, DemoProvider, OpenAIProvider, ProviderError
 from knowledge import METHODS, Knowledge
+from providers import SYSTEM_PROMPT, ProviderError, create_provider
 from storage import Conflict, NotFound, Store
 
 
 def create_app(config=None, provider=None, knowledge=None):
     load_dotenv(Path(__file__).parent / '.env')
-    app = Flask(__name__, instance_relative_config=True)
+    web = Path(__file__).parent / 'web/dist'
+    app = Flask(__name__, instance_relative_config=True, static_folder=str(web / 'assets'), static_url_path='/assets')
     app.config.from_mapping(
         SECRET_KEY=os.getenv('SECRET_KEY'),
         DATABASE=os.getenv('CHAT_DATABASE', str(Path(app.instance_path) / 'chat.sqlite3')),
         CHAT_PROVIDER=os.getenv('CHAT_PROVIDER', 'demo'),
         OPENAI_API_KEY=os.getenv('OPENAI_API_KEY'),
         OPENAI_MODEL=os.getenv('OPENAI_MODEL', 'gpt-4.1-mini'),
+        OPENAI_BASE_URL=os.getenv('OPENAI_BASE_URL'),
+        OLLAMA_HOST=os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434'),
+        LOCAL_CHAT_MODEL=os.getenv('LOCAL_CHAT_MODEL', 'qwen3:4b'),
         MAX_CONTENT_LENGTH=64 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
         SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE', 'false').lower() == 'true',
@@ -47,10 +53,7 @@ def create_app(config=None, provider=None, knowledge=None):
     Path(app.config['DATABASE']).parent.mkdir(parents=True, exist_ok=True)
     store = Store(app.config['DATABASE'])
     mode = app.config['CHAT_PROVIDER']
-    if mode not in ('demo', 'openai'):
-        raise ValueError('CHAT_PROVIDER must be demo or openai.')
-    app.extensions['provider'] = provider or (DemoProvider() if mode == 'demo' else
-        OpenAIProvider(app.config['OPENAI_API_KEY'], app.config['OPENAI_MODEL']))
+    app.extensions['provider'] = provider or create_provider(app.config)
     app.extensions['store'] = store
     corpus = knowledge or Knowledge(store, Path(app.instance_path) / 'documents')
     app.extensions['knowledge'] = corpus
@@ -113,7 +116,9 @@ def create_app(config=None, provider=None, knowledge=None):
 
     @app.get('/')
     def home():
-        return render_template('index.html')
+        if not (web / 'index.html').exists():
+            return '<!doctype html><title>Build required</title><p>Run <code>make web</code> to build the interface.</p>'
+        return send_from_directory(web, 'index.html')
 
     @app.get('/healthz')
     def health():
@@ -127,7 +132,7 @@ def create_app(config=None, provider=None, knowledge=None):
 
     @app.get('/api/session')
     def session_info():
-        return jsonify(csrf=session['csrf'], provider=mode)
+        return jsonify(csrf=session['csrf'], provider=mode, methods=list(METHODS))
 
     @app.get('/api/conversations')
     def list_conversations():
@@ -208,17 +213,12 @@ def create_app(config=None, provider=None, knowledge=None):
     def comparison(comparison_id):
         return jsonify(corpus.comparison(session['owner'], comparison_id))
 
-    @app.post('/chat')
-    def chat():
-        data = payload()
+    def run_turn(owner, cid, data, emit=None):
+        """One user turn: ordinary chat or a grounded answer, saved atomically on success."""
         message = text(data, 'message', 2000)
-        cid = text(data, 'conversation_id', 64)
-        conversation = store.get(session['owner'], cid)
+        conversation = store.get(owner, cid)
         if len(conversation['messages']) >= 200:
             raise Conflict('This chat has reached 100 turns. Start a new conversation.')
-        messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
-        messages += conversation['messages'][-20:]
-        messages.append({'role': 'user', 'content': message})
         grounded = None
         if data.get('document_id'):
             did = text(data, 'document_id', 64)
@@ -226,14 +226,59 @@ def create_app(config=None, provider=None, knowledge=None):
             if method not in METHODS:
                 from werkzeug.exceptions import BadRequest
                 raise BadRequest('Unknown answering method.')
-            grounded = corpus.answer(session['owner'], did, message, conversation['messages'], method)
+            grounded = corpus.answer(owner, did, message, conversation['messages'], method, emit=emit)
             reply = grounded['reply']
         else:
-            reply = app.extensions['provider'].reply(messages)
+            messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
+            messages += conversation['messages'][-20:]
+            messages.append({'role': 'user', 'content': message})
+            provider = app.extensions['provider']
+            if emit and hasattr(provider, 'stream'):
+                parts = []
+                for delta in provider.stream(messages):
+                    parts.append(delta)
+                    emit('token', {'text': delta})
+                reply = ''.join(parts).strip()
+            else:
+                reply = provider.reply(messages)
         if not isinstance(reply, str) or not reply.strip() or len(reply) > 10000:
             raise ProviderError('The provider returned an invalid reply.', 502)
-        store.append_turn(session['owner'], cid, conversation['version'], message, reply, grounded)
-        return jsonify(reply=reply, conversation_id=cid, **({'grounded': grounded} if grounded else {}))
+        store.append_turn(owner, cid, conversation['version'], message, reply, grounded)
+        return {'reply': reply, 'conversation_id': cid, **({'grounded': grounded} if grounded else {})}
+
+    @app.post('/chat')
+    def chat():
+        data = payload()
+        return jsonify(run_turn(session['owner'], text(data, 'conversation_id', 64), data))
+
+    @app.post('/api/conversations/<cid>/messages')
+    def stream_message(cid):
+        """Server-sent events: step, evidence and token events, then done or error."""
+        data, owner = payload(), session['owner']
+        text(data, 'message', 2000)
+        store.get(owner, cid)  # Fail fast with 404 before opening the stream.
+        events: queue.Queue = queue.Queue()
+
+        def work():
+            try:
+                events.put(('done', run_turn(owner, cid, data, lambda event, value: events.put((event, value)))))
+            except (ProviderError, Conflict, NotFound, HTTPException) as error:
+                message = getattr(error, 'description', None) or str(error) or 'Conversation not found.'
+                events.put(('error', {'error': message}))
+            except Exception as error:
+                app.logger.error('Streamed turn failed: %s', type(error).__name__)
+                events.put(('error', {'error': 'Unable to complete the request. Try again.'}))
+            events.put(None)
+
+        # The turn finishes and is saved even if the browser disconnects mid-stream.
+        threading.Thread(target=work, daemon=True).start()
+
+        def stream():
+            while (item := events.get()) is not None:
+                yield f'event: {item[0]}\ndata: {json.dumps(item[1])}\n\n'
+
+        return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                        headers={'X-Accel-Buffering': 'no'})
 
     return app
 

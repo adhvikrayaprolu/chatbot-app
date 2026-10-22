@@ -1,4 +1,4 @@
-.venv/
+.venv
 venv/
 .env
 instance/
@@ -10,4 +10,5 @@ retrieval/target/
 .private/
 *.sqlite3
 *.sqlite3-*
-.venv/
+web/node_modules/
+web/dist/

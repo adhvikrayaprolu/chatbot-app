@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from app import create_app
-from gpt_handler import ProviderError
 from knowledge import METHODS, Knowledge
+from providers import ProviderError
 from storage import Conflict, NotFound, Store
 
 
@@ -30,8 +30,11 @@ class Models:
     def embed(self, texts):
         return [[1.0, 0.5] for _ in texts]
 
-    def generate(self, messages, schema=None, citation_ids=None):
-        return {'text': 'A barrier synchronizes a block [p1-c0].', 'input_tokens': 10, 'output_tokens': 5}
+    def generate(self, messages, schema=None, citation_ids=None, on_token=None):
+        text = 'A barrier synchronizes a block [p1-c0].'
+        if on_token:
+            on_token(text)
+        return {'text': text, 'input_tokens': 10, 'output_tokens': 5}
 
 
 @pytest.fixture
@@ -294,3 +297,24 @@ def test_scoped_and_rerank_use_one_decision_and_only_supplied_ids(corpus):
     k.models.generate = lambda *args: {'text': '{"ids":["p9-c9"]}', 'input_tokens': 1, 'output_tokens': 1}
     with pytest.raises(ProviderError):
         k.answer('alice', did, 'barrier', method='rerank')
+
+
+def test_cursor_backend_parses_headless_json_and_enforces_citations(tmp_path, monkeypatch):
+    import json
+
+    from knowledge import create_models
+    reply = {'type': 'result', 'result': '```json\n' + json.dumps({'answer': 'Tiles reuse data', 'citations': ['p1-c0']}) + '\n```'}
+    (tmp_path / 'reply.json').write_text(json.dumps(reply))
+    cli = tmp_path / 'cursor-agent'
+    cli.write_text(f"#!/bin/sh\ncat '{tmp_path / 'reply.json'}'\n")
+    cli.chmod(0o755)
+    monkeypatch.setenv('CURSOR_AGENT_BIN', str(cli))
+    models = create_models('cursor:test-model')
+    assert models.digest('test-model') == 'cursor:test-model'
+    streamed = []
+    result = models.generate([{'role': 'user', 'content': 'q'}], None, ['p1-c0'], on_token=streamed.append)
+    assert result['text'] == 'Tiles reuse data [p1-c0]' and streamed == [result['text']]
+    with pytest.raises(ProviderError):
+        models.generate([{'role': 'user', 'content': 'q'}], None, ['p2-c0'])
+    with pytest.raises(ValueError):
+        create_models('gpt')

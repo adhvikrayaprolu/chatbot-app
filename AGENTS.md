@@ -1,38 +1,24 @@
-# Project
-Maintain independent conversations with a language-model chatbot.
+# Lookup: agent guide
 
-# Architecture
-Flask routes in app.py, owner-scoped SQLite in storage.py, providers in gpt_handler.py,
-private ingestion/grounded answering in knowledge.py, and a local Rust retrieval CLI.
-Vanilla templates/static UI. Never publish private PDF/chunks/vectors/OKF/traces.
-User-approved document intelligence milestones #12, #13, #14 supersede the old
-readiness-only scope. Preserve existing chat.
+## Layout
+- `app.py`: Flask API, CSRF, per-browser ownership, SSE message streaming.
+- `knowledge.py`: PDF ingestion, grounded answering, citation validation, comparisons, generator backends (Ollama, Cursor CLI).
+- `strategies.py`: agent (LangGraph), OKF navigation, scoped and rerank retrieval.
+- `providers.py`: ordinary chat providers (demo / ollama / OpenAI-compatible).
+- `storage.py`: owner-scoped SQLite for conversations.
+- `retrieval/`: Rust search engine (JSON over stdin/stdout).
+- `web/`: React + TypeScript + Vite client, built to `web/dist` and served by Flask.
+- `bench.py`, `evaluation.py`, `evaluation_external.py`: benchmarks; `benchmarks/` holds aggregate results only.
 
-# Local Development
-Follow the verified root README workflow. Root Makefiles coordinate Python/React environments where present; Spring defaults to persistent local H2; Android needs JDK17 and an explicit SDK path. Do not use source-level credentials or mutate live Firebase.
+## Commands
+`make setup`, `make models`, `make dev`, `make web-dev`, `make test`, `make check`, `make bench`.
+Browser end-to-end: `RUN_BROWSER=1 .venv/bin/python -m pytest tests/test_browser.py`.
 
-# Validation
-Recommended startup: copy `.env.example` to `.env`, then `docker compose up --build --wait --wait-timeout 90`. Native setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
-
-# Frontend Rules
-Keep the native stack (JSP, vanilla HTML or Android Java/XML). Preserve keyboard/accessibility, loading/error/empty states; do not migrate to React.
-
-# Backend Rules
-Preserve existing API behavior unless the selected issue explicitly changes it. Validate ownership, inputs and provider failures. Add rollback/permission tests before splitting responsibilities. Never print credentials or use real paid/cloud integrations in tests without explicit authorization.
-
-# Testing Rules
-Add meaningful regression tests for the selected workflow, including failure/authorization paths. Use fakes or local emulators; document remaining test gaps. Measure a baseline before any performance claim.
-
-# GitHub Workflow
-Read open GitHub issues as the work source. Branch from current main as codex/<issue>-<scope>; link the real issue in a draft PR, record validation and verification limits. Use Closes #N only when all criteria are met; issue closes on human merge, not when the draft opens. Never merge or push directly to main.
-
-# Do Not
-Do not commit secrets, migrate frameworks, change unrelated features, deploy, rotate credentials or mutate live cloud data. Inspect open PRs before selecting an issue; the quality integration PR publishes earlier product and control-plane work. Never redo work already present in an active PR.
-
-# Issue Selection Rules
-1. Read the Portfolio readiness tracking meta issue; stop if complete.
-2. Search open issues labelled automation:ready; exclude any blocked/human-review/do-not-touch issue.
-3. Select P0, then P1, then P2; confirm all dependencies are closed and accepted. Within a priority choose foundations first, then oldest issue.
-4. Choose one coherent issue; skip work already covered by an open PR.
-5. If credentials/decisions/failed baseline block it, document the blocker and remove ready eligibility.
-6. Implement, run canonical checks and issue-specific tests, open a linked draft PR. Never merge.
+## Rules
+- Every document, conversation and comparison query is scoped to the owner; keep it that way and test the cross-owner path.
+- Grounded answers must cite only supplied passage IDs or abstain. Don't weaken the schema or the post-validation.
+- Imported PDFs, chunks, embeddings, OKF bundles, annotations and per-question answers stay in ignored `instance/`. Only aggregates go in `benchmarks/`.
+- Embeddings and search are always local. Generation defaults to loopback Ollama; `GENERATOR=cursor:<model>` is the only path that sends passages off the machine, and it must stay an explicit opt-in.
+- Tests use fake models and the debug Rust binary; never call paid APIs or the network from tests.
+- A new search strategy must share the generator, prompt and evidence budget, register in `knowledge.METHODS` and `strategies.STRATEGIES`, appear in `web/src/types.ts`, and get a benchmark entry in `bench.py`.
+- Never commit secrets or `.env`. Work on a branch and open a PR; don't push to `main`.

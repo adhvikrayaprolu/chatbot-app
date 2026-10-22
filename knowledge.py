@@ -10,8 +10,10 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -20,8 +22,8 @@ from uuid import uuid4
 import httpx
 from pypdf import PdfReader
 
-from gpt_handler import ProviderError
 from observability import traced
+from providers import ProviderError
 from storage import Conflict, NotFound
 
 ROOT = Path(__file__).parent
@@ -48,6 +50,67 @@ def answer_schema(ids: list[str]) -> dict:
         'citations': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 0},
     }}
     return {'anyOf': [supported, abstained]}
+
+
+class AnswerField:
+    """Decodes the JSON "answer" string while the model is still producing it."""
+    ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', 'b': '\b', 'f': '\f'}
+
+    def __init__(self):
+        self.sent = 0
+
+    def feed(self, raw: str) -> str:
+        match = re.search(r'"answer"\s*:\s*"', raw)
+        if not match:
+            return ''
+        body, out, i = raw[match.end():], [], 0
+        while i < len(body) and body[i] != '"':
+            if body[i] == '\\':
+                if i + 1 >= len(body) or (body[i + 1] == 'u' and i + 6 > len(body)):
+                    break
+                if body[i + 1] == 'u':
+                    out.append(chr(int(body[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                out.append(self.ESCAPES.get(body[i + 1], body[i + 1]))
+                i += 2
+                continue
+            out.append(body[i])
+            i += 1
+        text = ''.join(out)
+        delta, self.sent = text[self.sent:], len(text)
+        return delta
+
+
+def output_schema(schema: dict | None, citation_ids: list[str] | None) -> dict:
+    if citation_ids is not None:
+        return answer_schema(citation_ids)
+    return schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
+
+
+def finish(text: str, schema: dict | None, citation_ids: list[str] | None) -> str:
+    """Strip reasoning, then enforce the answer/citation contract for any backend."""
+    if '</think>' in text:
+        text = text.rsplit('</think>', 1)[1].strip()
+    elif '<think>' in text:
+        raise ProviderError('Model did not finish a public answer.', 502)
+    if schema is not None:
+        return text
+    parsed = json.loads(text)
+    answer = parsed['answer']
+    if not isinstance(answer, str) or not answer.strip():
+        raise ProviderError('Model returned an empty final answer.', 502)
+    if citation_ids is not None:
+        citations = parsed.get('citations')
+        if (not isinstance(citations, list) or any(not isinstance(cid, str) or cid not in citation_ids for cid in citations)
+                or (citation_ids and not citations and not answer.startswith('Insufficient evidence'))
+                or (answer.startswith('Insufficient evidence') and citations)):
+            raise ProviderError('Model returned invalid structured citations.', 502)
+        existing = set(re.findall(r'\[(p\d+-c\d+)\]', answer))
+        missing = [cid for cid in dict.fromkeys(citations) if cid not in existing]
+        if missing:
+            answer = answer.rstrip() + ' ' + ' '.join(f'[{cid}]' for cid in missing)
+    return answer
 
 
 class LocalModels:
@@ -81,14 +144,13 @@ class LocalModels:
         return self.request('/api/embed', {'model': self.embedding, 'input': texts, 'truncate': False})['embeddings']
 
     @traced('generate', 'generation')
-    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None) -> dict:
+    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None,
+                 on_token: Callable[[str], None] | None = None) -> dict:
         # LangChain provides the local model adapter; graph control remains explicit.
         from langchain_ollama import ChatOllama
         model: Any = ChatOllama(model=self.model, base_url=self.host, temperature=0, num_ctx=8192,
                            num_predict=1024, reasoning=False, client_kwargs={'timeout': 180})
-        response_schema = schema or {'type': 'object', 'properties': {'answer': {'type': 'string', 'description': 'Only the concise final public answer, with citations where required. Never internal analysis or reasoning.'}}, 'required': ['answer']}
-        if citation_ids is not None:
-            response_schema = answer_schema(citation_ids)
+        response_schema = output_schema(schema, citation_ids)
         model = model.bind(format=response_schema)
         try:
             from langsmith import tracing_context
@@ -96,33 +158,75 @@ class LocalModels:
             safe_messages.insert(0, ('system', 'Return JSON matching this schema: ' + json.dumps(response_schema) + '. Output only the final result, never analysis or thinking.'))
             safe_messages[-1] = (safe_messages[-1][0], safe_messages[-1][1] + '\n/no_think')
             with tracing_context(enabled=False):
-                response = model.invoke(safe_messages)
+                if on_token is None:
+                    response = model.invoke(safe_messages)
+                else:
+                    response, field = None, AnswerField()
+                    for chunk in model.stream(safe_messages):
+                        response = chunk if response is None else response + chunk
+                        delta = field.feed(str(response.content))
+                        if delta:
+                            on_token(delta)
+                    if response is None:
+                        raise ProviderError('Model returned no output.', 502)
             usage: dict = response.usage_metadata or {}
-            text = str(response.content)
-            if '</think>' in text:
-                text = text.rsplit('</think>', 1)[1].strip()
-            elif '<think>' in text:
-                raise ProviderError('Model did not finish a public answer.', 502)
-            if schema is None:
-                parsed = json.loads(text)
-                text = parsed['answer']
-                if not isinstance(text, str) or not text.strip():
-                    raise ProviderError('Model returned an empty final answer.', 502)
-                if citation_ids is not None:
-                    citations = parsed.get('citations')
-                    if (not isinstance(citations, list) or any(not isinstance(cid, str) or cid not in citation_ids for cid in citations)
-                            or (citation_ids and not citations and not text.startswith('Insufficient evidence'))
-                            or (text.startswith('Insufficient evidence') and citations)):
-                        raise ProviderError('Model returned invalid structured citations.', 502)
-                    existing = set(re.findall(r'\[(p\d+-c\d+)\]', text))
-                    missing = [cid for cid in dict.fromkeys(citations) if cid not in existing]
-                    if missing:
-                        text = text.rstrip() + ' ' + ' '.join(f'[{cid}]' for cid in missing)
+            text = finish(str(response.content), schema, citation_ids)
             return {'text': text, 'input_tokens': usage.get('input_tokens', 0),
                     'output_tokens': usage.get('output_tokens', 0),
                     'load_seconds': (response.response_metadata or {}).get('load_duration', 0) / 1e9}
         except Exception as error:
             raise ProviderError('Local generation failed. Check Ollama/model readiness and retry.', 503) from error
+
+
+class CursorModels(LocalModels):
+    """Generation through the Cursor CLI's headless mode, billed to the user's Cursor plan.
+
+    Embeddings and search stay on local Ollama; only the prompt for each generation call
+    (question plus selected passages) leaves the machine. Choosing this backend is the opt-in.
+    """
+
+    def __init__(self, host: str, model: str):
+        super().__init__(host)
+        self.model = model
+        self.workspace = Path(tempfile.mkdtemp(prefix='cursor-generation-'))  # empty: nothing for the agent to read
+
+    def digest(self, name: str) -> str:
+        return f'cursor:{name}' if name == self.model else super().digest(name)
+
+    @traced('generate', 'generation')
+    def generate(self, messages: list[dict], schema: dict | None = None, citation_ids: list[str] | None = None,
+                 on_token: Callable[[str], None] | None = None) -> dict:
+        response_schema = output_schema(schema, citation_ids)
+        prompt = ('You are a text-only function. Do not use tools, run commands or read files. '
+                  'Reply with one JSON object matching this schema and nothing else:\n'
+                  + json.dumps(response_schema) + '\n\n'
+                  + '\n\n'.join(f"{m['role'].upper()}:\n{m['content']}" for m in messages))
+        command = [os.getenv('CURSOR_AGENT_BIN', 'cursor-agent'), '-p', '--output-format', 'json', '-m', self.model, prompt]
+        try:
+            result = subprocess.run(command, cwd=self.workspace, capture_output=True, text=True, timeout=300, check=True)
+            raw = json.loads(result.stdout)
+            body = raw.get('result') or raw.get('text') or ''
+            match = re.search(r'\{.*\}', body, re.S)  # tolerate Markdown fences around the JSON
+            text = finish(match.group(0) if match else body, schema, citation_ids)
+        except ProviderError:
+            raise
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError) as error:
+            raise ProviderError('Cursor generation failed. Check `cursor-agent status` and your plan usage.', 503) from error
+        if on_token:
+            on_token(text)
+        usage = raw.get('usage') or {}
+        return {'text': text, 'input_tokens': usage.get('input_tokens', 0), 'output_tokens': usage.get('output_tokens', 0)}
+
+
+def create_models(generator: str | None = None):
+    """`GENERATOR=ollama` (default) or `cursor:<model>`, e.g. `cursor:claude-4.5-sonnet`."""
+    host = os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434')
+    generator = generator or os.getenv('GENERATOR') or 'ollama'
+    if generator.startswith('cursor:'):
+        return CursorModels(host, generator.split(':', 1)[1])
+    if generator != 'ollama':
+        raise ValueError('GENERATOR must be ollama or cursor:<model>.')
+    return LocalModels(host)
 
 
 class TokenBudget:
@@ -159,7 +263,7 @@ class Knowledge:
     def __init__(self, store, directory: Path, models=None, tokens=None):
         self.store, self.directory = store, Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.models = models or LocalModels(os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434'))
+        self.models = models or create_models()
         self._tokens = tokens
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='document-index')
         self.lock = threading.RLock()
@@ -331,23 +435,27 @@ class Knowledge:
         self.jobs[did] = self.worker.submit(self.ingest, did, source)
 
     @traced('answer', 'chain')
-    def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag', evidence: list | None = None) -> dict:
+    def answer(self, owner: str, did: str, question: str, history: list | None = None, method: str = 'rag',
+               evidence: list | None = None, emit: Callable[[str, dict], None] | None = None) -> dict:
         if method not in METHODS:
             raise ValueError('Unsupported answering method')
         self.ready(owner, did)
         start = time.perf_counter()
+        notify = emit or (lambda event, data: None)
         acquired: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'load_seconds': 0, 'steps': []}
         if evidence is not None:
             hits = evidence
         elif method == 'rag':
             hits = self.search(owner, did, question)
-            acquired['steps'] = ['Retrieved evidence']
+            acquired['steps'] = [f'Retrieved {len(hits)} passages with hybrid search']
+            notify('step', {'label': acquired['steps'][0]})
         else:
             from strategies import STRATEGIES
-            acquired = STRATEGIES[method](self, owner, did, question, history or [])
+            acquired = STRATEGIES[method](self, owner, did, question, history or [], lambda label: notify('step', {'label': label}))
             hits = acquired['evidence']
         selected = self.select_evidence(hits)
         count = self.tokens.count(self.context(selected))
+        notify('evidence', {'passages': [{'id': h['id'], 'page': h.get('page'), 'section': h.get('section')} for h in selected]})
         if not selected:
             result: dict[str, Any] = {'text': 'Insufficient evidence in this document.', 'input_tokens': 0, 'output_tokens': 0}
         else:
@@ -363,7 +471,9 @@ class Knowledge:
                 history_tokens += size
             messages.extend(recent)
             messages.append({'role': 'user', 'content': f'Question: {question}\n<evidence>\n{context}\n</evidence>'})
-            result = self.models.generate(messages, None, [h['id'] for h in selected])
+            ids = [h['id'] for h in selected]
+            result = (self.models.generate(messages, None, ids, on_token=lambda text: notify('token', {'text': text}))
+                      if emit else self.models.generate(messages, None, ids))
         allowed = {h['id']: h for h in selected}
         ids = re.findall(r'\[(p\d+-c\d+)\]', result['text'])
         invalid = [cid for cid in ids if cid not in allowed]

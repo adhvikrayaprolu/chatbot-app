@@ -1,104 +1,117 @@
-# Local Document Intelligence
+# Lookup
 
-A local study assistant for asking cited questions about documents and comparing how three methods find evidence. Flask and plain JavaScript provide the interface, Python handles ingestion and experiments, and a Rust engine performs retrieval.
+**How should an AI look things up in a long document?** Lookup is a chat app over your PDFs that answers with cited passages and puts five different search strategies behind the same interface, plus a benchmark that measures which one actually finds better evidence.
 
-Import a PDF, inspect the sources behind an answer, and compare standard RAG, a bounded LangGraph agent, and source-backed OKF navigation. Conversations, document indexes and comparison experiments persist in SQLite. The included original GPU notes let you try the product without the private textbook or paid credentials.
+The test document is a 555-page CUDA textbook (*Programming Massively Parallel Processors*): code listings, formulas, cross-references and a deep table of contents. That's the kind of material where naive retrieval breaks.
 
-![Cited answer using the original public GPU notes](benchmarks/public-demo-desktop.png)
+![Cited answer streaming in with the agent's search trace](docs/screenshot-desktop.png)
 
-## Run locally
+## The experiment
 
-Prerequisites: Python 3.12 or 3.13, Make, a native Rust toolchain and Ollama. Start Ollama, then:
+Every RAG demo makes the same choice silently: chunk the PDF, embed it, take the top-k. Agents and long-context models have made other ways of looking things up practical, and they disagree with each other:
+
+| Strategy | How it finds evidence | Model calls before answering |
+| --- | --- | ---: |
+| **RAG** | Hybrid search: BM25 (SQLite FTS5) + dense embeddings, fused by reciprocal rank | 0 |
+| **Rerank** | Hybrid top-20, then the model keeps the five most relevant | 1 |
+| **Scoped** | The model reads the table of contents and picks sections; hybrid search ranks only inside them | 1 |
+| **OKF** | The model walks the book's outline ([Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format) bundle) to sections, then passages. No vectors | 2 |
+| **Agent** | LangGraph loop: plan a query → retrieve → judge sufficiency → rewrite once if needed | 2–4 |
+
+To make the comparison fair, **only evidence acquisition varies**. All five share the generator, the answer prompt, a 3,072-token evidence budget, and a citation contract: the model may cite only the passage IDs it was given, or must say the document doesn't cover the question. Two controls bracket the results: *no retrieval* (the floor) and *gold evidence* (hand-annotated passages, the ceiling).
+
+The question suite has 120 original questions in six types: factual, conceptual, multi-section synthesis, code/formula reading, follow-ups that depend on earlier turns, and unanswerable questions. Results are in [benchmarks/leaderboard.md](benchmarks/leaderboard.md) and [benchmarks/findings.md](benchmarks/findings.md). So far:
+
+- Retrieval matters more than anything else: the same model goes from 6/24 to 21/24 correct once it gets evidence.
+- One-shot RAG ties the LangGraph agent on accuracy at half the latency.
+- In the retrieval run so far (35 of 100 questions), letting the model choose sections from the table of contents before searching (**Scoped**) finds the right passages more often than plain vector or hybrid search.
+
+## Which models, and why
+
+Search always runs locally: `embeddinggemma` for embeddings, SQLite + a Rust engine for BM25 and vectors. Generation is pluggable:
+
+- **Local (default): `qwen3:4b` via Ollama.** It's free, private (a copyrighted book never leaves the laptop) and reproducible, since model digests are pinned in every benchmark run. A small model is also a deliberately hard test: it can't paper over bad retrieval with memorized knowledge. Its weakness is that it is now the bottleneck on hard questions, and it shouldn't grade its own answers.
+- **Frontier models through your Cursor plan: `GENERATOR=cursor:<model>`.** Uses the [Cursor CLI's headless mode](https://cursor.com/docs/cli/headless) (`cursor-agent -p --output-format json`) to run any model your plan offers. Its output goes through the same citation validation. This sends each question and its selected passages to Cursor, so it is opt-in.
+
+The benchmark keeps a separate journal per generator and judge, so you can answer "does a stronger model change which search strategy wins?" without mixing results. Model names are whatever your Cursor plan lists; the ones below are examples:
 
 ```sh
-make setup
-make models
-make dev
+.venv/bin/python bench.py answers --generator ollama --judge cursor:claude-4.5-sonnet   # small model, strong judge
+.venv/bin/python bench.py answers --generator cursor:gpt-5                              # frontier generator
+.venv/bin/python bench.py report
 ```
 
-Open http://127.0.0.1:5000. `make models` downloads `embeddinggemma`, `qwen3:4b` and a revision-pinned Qwen tokenizer locally. Ordinary chat uses an offline demo provider by default; document answering needs the local models. Direct Python dependencies and the Rust dependency lockfile are committed; broader Python dependency locking remains tracked in issue #10.
+## Using the app
 
-For a short demo:
-
-1. Click **Try original GPU notes** and wait for the source to become ready.
-2. Ask **Can a block barrier synchronize separate blocks?**
-3. Open a citation to inspect the supporting text and page provenance.
-4. Select another method, or click **Compare methods** to inspect three separate answers, timings, tokens, evidence and tool steps.
-5. Reload the page: chat history persists, and the saved-experiment selector opens previous comparisons.
-
-The interface supports import progress, failed-import retry, source removal, keyboard controls and narrow screens. Comparison answers are experiments and never enter subsequent conversation context. Execution steps show tool activity without exposing hidden reasoning. The functional UI retains the existing visual system; the larger Figma design remains pending selection of the owner's Figma team.
+- Streams as it works: agent steps ("Planned query…", "Evidence insufficient", "Rewrote query…"), then answer tokens, over server-sent events.
+- Numbered citation chips open the exact passage with its page and section.
+- **Compare methods** runs all five strategies on one question side by side, with timings, model calls and tokens.
+- PDFs, embeddings and indexes live in `instance/`; nothing is uploaded anywhere unless you choose the Cursor generator.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI[HTML / CSS / JavaScript] --> App[Flask API]
-  App --> Store[Owner-scoped SQLite]
-  App --> Python[PDF ingestion and answer orchestration]
-  Python --> Rust[Rust CLI: FTS5 + exact cosine + RRF]
-  Python --> Graph[LangGraph bounded agent]
-  Python --> OKF[Source-preserving OKF indexes and links]
-  Python --> Ollama[Local Ollama models]
+  Web["React + Vite client"] -- "REST + SSE" --> API["Flask API"]
+  API --> Store[("SQLite: chats, documents, answers")]
+  API --> K["knowledge.py: ingest + answer"]
+  K --> S["strategies.py: agent / OKF / scoped / rerank"]
+  K --> R["Rust engine: FTS5 + cosine + RRF"]
+  K --> E["Ollama: embeddings"]
+  K --> G["Generator: Ollama or Cursor CLI"]
 ```
 
-The repository stays flat: `app.py` defines the API, `storage.py` handles persistence, `gpt_handler.py` supplies ordinary chat providers, `knowledge.py` owns document ingestion and grounded answers, and `strategies.py` implements evidence-acquisition methods. `retrieval/` is one Rust crate, not a separate network service. Flask keeps its conventional `templates/` and `static/` directories; `tests/` has meaningful API, native-boundary, browser and evaluator boundaries. Evaluation lives in two root modules and publishes only permitted artifacts under `benchmarks/`.
+- `web/`: React + TypeScript client built with Vite and served by Flask.
+- `app.py`: API, CSRF and per-browser ownership; `POST /api/conversations/<id>/messages` streams `step`, `evidence`, `token`, then `done`.
+- `knowledge.py`: PDF ingestion (outline-aware sections, tokenizer-exact 500-token chunks), generator backends, citation validation, comparisons.
+- `strategies.py`: the five search strategies.
+- `retrieval/`: Rust search engine with a versioned JSON protocol. Indexes are fingerprinted against source, embedding model and chunking, so a stale index is rejected rather than silently searched.
+- `providers.py`: plain, ungrounded chat (offline demo, Ollama, or any OpenAI-compatible endpoint).
+- `bench.py`: fast leaderboard. `evaluation.py`: slower frozen-protocol study with held-out split, repeats and bootstrap intervals.
 
-Python invokes Rust through a versioned JSON interface with argument arrays, timeouts and structured errors. The engine stores source passages, vectors and FTS5 data in SQLite. PDF extraction records chapter/section titles from document outlines, PDF page numbers, independently detected printed page numbers and extraction warnings. Approximately 500-token chunks overlap by 75 tokens. Embedding caches include the document hash, extraction configuration and model digest.
+## Run it
 
-Signed browser cookies identify owners; every document, conversation and experiment endpoint checks ownership. CSRF protects writes, and failed or conflicting chat turns roll back atomically. This supports local browser isolation; it does not provide accounts shared across devices. Additive schema changes preserve existing conversations. Source deletion removes the corpus, saved comparison experiments and stored passage copies; saved conversational answer text remains until its conversation is deleted.
-
-## Three answering methods
-
-| Method | Evidence acquisition | Bound |
-| --- | --- | --- |
-| Standard RAG | One hybrid lexical/dense retrieval, selecting five passages | One answer call |
-| Agentic RAG | Plan a query, retrieve, assess support, retry if needed | Two retrieval rounds; at most five calls |
-| OKF navigation | Walk the document outline (chapter → section), then pick passages; no vector search | Two navigation hops; at most three calls |
-
-LangChain supplies the Ollama model adapters and structured interfaces. LangGraph supplies explicit state and bounded transitions for the agent. Neither framework replaces the Rust engine or owns database storage. OKF v0.2 is a linked Markdown format, not another model: generated bundles preserve source content, provenance and `draft` status, without claiming human verification.
-
-All methods use `qwen3:4b`, thinking disabled, temperature zero, an 8,192-token context window, a 1,024-token output cap, the same citation/abstention instructions and a 3,072-token evidence budget. Document text is treated as untrusted evidence. The final answer schema requires supplied citation IDs or explicit abstention; the adapter validates IDs before rendering links, and the application checks inline IDs too. It abstains when evidence is missing. Valid IDs alone do not establish factual support.
-
-## Verification
+Prerequisites: Python 3.12+, Node 22, a Rust toolchain and [Ollama](https://ollama.com).
 
 ```sh
-make test
-make check
-.venv/bin/pip install -r requirements-browser.txt
-.venv/bin/python -m playwright install chromium
-RUN_BROWSER=1 .venv/bin/python -m pytest -q tests/test_browser.py
-node --check static/chat.js
+make setup     # Python venv, Rust engine, web client
+make models    # pulls qwen3:4b + embeddinggemma and a pinned tokenizer
+make dev       # http://127.0.0.1:5000
 ```
 
-Offline tests use original fixtures and fake providers. They cover ownership isolation, restart persistence, conflicts, atomic failed turns, source deletion during a request, citation validation, extraction provenance, malformed vectors, ranking, index compatibility, navigation limits, prompt boundaries, model failures, mobile layout and keyboard controls. CI runs Python tests/lint/type checks, Rust tests/format/clippy, browser acceptance and Docker build/restart smoke checks. Vanilla JavaScript has no frontend bundle build.
+Click **Try GPU demo notes**, choose it as the source, and ask *"Can a barrier synchronize separate blocks?"*. Import any PDF from the library the same way. `make web-dev` runs Vite on :5173 against Flask for frontend work.
 
-## Benchmarks and measured findings
+To answer with a frontier model instead, install the [Cursor CLI](https://cursor.com/docs/cli/overview), run `cursor-agent login` once, and set `GENERATOR=cursor:<model>` in `.env`.
 
-[Methodology](benchmarks/README.md) documents the original 120-question suite, reference-review actors, controls, paired uncertainty intervals, frozen configurations and reproducible commands. [Findings](benchmarks/findings.md) reports the completed 120-run development comparison: RAG and agentic scored 21/24 and OKF 14/24 under automated grading with deterministic abstention checks, with median times of 7.81 seconds for RAG, 16.80 for agentic and 28.11 for OKF. Held-out comparisons, external calibration and separate audit remain incomplete; no final quality winner is established. Detailed answers, reference annotations and textbook passages stay private.
-
-Development passage recall@5 on 20 source-reviewed answerable questions was **40.0% lexical, 60.0% dense and 67.5% hybrid**. Hybrid remains the default. This small retrieval result does not establish which answering method is best. Held-out generation/scoring, the 50-question QASPER probe, 50-example RAGBench evaluator calibration and 24-case independent audit must finish before a quality recommendation.
-
-## Optional local Langfuse
-
-The app and exports work without tracing. To start the separate development stack:
+With Docker (Ollama stays on the host for GPU access):
 
 ```sh
-.venv/bin/python scripts/setup_observability.py
-docker compose -p chatbot-local-observability --env-file instance/langfuse.env -f compose.langfuse.yaml up -d
-set -a
-. instance/langfuse.env
-set +a
-LANGFUSE_ENABLED=true make dev
+cp .env.example .env
+docker compose up --build --wait
 ```
 
-Open http://localhost:3000. The ignored generated environment file contains the local developer login (`study@localhost.test`) and private password. Only the UI is exposed, on loopback; other services are internal. S3Mock supplies a development object store. Spans preserve allowlisted numeric metrics and omit arguments, model inputs/outputs and source content. Cloud trace endpoints are rejected and LangSmith tracing is disabled. Stop the stack with the same Compose command followed by `stop`; retain volumes for saved traces.
+## Benchmarks
 
-## API, privacy and limitations
+```sh
+.venv/bin/python scripts/import_evaluation_corpus.py path/to/book.pdf
+make bench
+```
 
-`POST /api/documents` imports a multipart PDF up to 64 MiB; `/api/documents/demo` imports the original notes. Owner-scoped status, retry, delete and source-inspection routes are under `/api/documents/<id>`. The existing `/chat` accepts optional `document_id` and `method`; omission preserves ordinary chat. Separate comparison endpoints persist experiments without changing conversation context.
+- **Retrieval track**: what each strategy hands the generator under the shared budget. Measures passage recall, gold-page hit rate, MRR, model calls and latency.
+- **Answer track**: correctness (abstention rules, then an LLM judge against reference answers), citation precision, latency and tokens.
 
-The private textbook, extracted text, embeddings, OKF bundle, detailed evaluations and trace credentials live in ignored `instance/` and are excluded from Docker build context. Keep that directory to preserve histories, ownership keys and caches. Never commit it. A single application process coordinates background ingestion; multi-process ingestion coordination is not implemented.
+Runs are journaled per question and resume after interruption. Only aggregates are committed; the book, annotations and answers stay local.
 
-Text extraction can lose formulas and layout; figure-only questions are unsupported. Automated judges are fallible and share the generator model, so their scores are estimates requiring calibration and separate review. Private reference annotations are not distributed, limiting exact textbook reproduction from a fresh clone; the public demo and offline CI remain independently runnable.
+## Tests
 
-The project began as ClayHR HR-support chatbot exploration. Historical notebooks remain archived context; the shipped app is the local document assistant. Ordinary OpenAI chat is optional and configured through `.env`, without source credentials. A historical credential-shaped notebook string still needs owner review under issue #4. Public hosting would require account authentication and abuse controls. No deployment or merge is part of these draft milestones; Compose readiness remains separate in PR #11.
+```sh
+make test     # Rust + Python (API, strategies, streaming, Cursor backend) + web unit tests
+make check    # ruff, mypy, rustfmt, clippy, TypeScript
+RUN_BROWSER=1 .venv/bin/python -m pytest tests/test_browser.py   # Playwright end-to-end
+```
+
+Tests use deterministic fake models: no network, no API keys, no Cursor usage.
+
+## Roadmap
+
+[docs/roadmap.md](docs/roadmap.md): a tool-using search agent (grep / table of contents / search / read) to test whether agents need embeddings at all, an MCP server so other agents can search a book, a long-context "whole book in the prompt" baseline, and page-image retrieval for figures.
