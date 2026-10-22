@@ -156,3 +156,33 @@ def test_security_headers_and_plain_text_ui(setup):
     assert response.status_code == 200
     assert "script-src 'self'" in response.headers['Content-Security-Policy']
     assert response.headers['Cache-Control'] == 'no-store'
+
+
+def test_readiness_is_cookie_free_and_never_calls_provider(setup):
+    app, provider, _ = setup
+    provider.error = ProviderError('Unavailable provider')
+    response = app.test_client().get('/healthz')
+    assert response.status_code == 200
+    assert response.json == {'status': 'ok'}
+    assert 'Set-Cookie' not in response.headers
+    assert not provider.calls
+
+
+def test_readiness_reports_missing_schema_without_internal_details(setup):
+    app, provider, _ = setup
+    with app.extensions['store'].connect() as db:
+        db.execute('DROP TABLE messages')
+        db.execute('DROP TABLE conversations')
+    response = app.test_client().get('/healthz')
+    assert response.status_code == 503
+    assert response.json == {'status': 'unavailable'}
+    assert not provider.calls
+
+
+def test_readiness_reports_unreachable_database(setup, tmp_path):
+    app, provider, _ = setup
+    app.extensions['store'].path = str(tmp_path / 'missing-directory' / 'chat.db')
+    response = app.test_client().get('/healthz')
+    assert response.status_code == 503
+    assert response.json == {'status': 'unavailable'}
+    assert not provider.calls
