@@ -2,7 +2,11 @@
 Maintain independent conversations with a language-model chatbot.
 
 # Architecture
-app.py: Flask routes and readiness; gpt_handler.py: stateless demo/OpenAI boundary; storage.py: owner-scoped SQLite persistence; templates/ and static/: vanilla browser UI.
+Flask routes in app.py, owner-scoped SQLite in storage.py, providers in gpt_handler.py,
+private ingestion/grounded answering in knowledge.py, and a local Rust retrieval CLI.
+Vanilla templates/static UI. Never publish private PDF/chunks/vectors/OKF/traces.
+User-approved document intelligence milestones #12, #13, #14 supersede the old
+readiness-only scope. Preserve existing chat.
 
 # Local Development
 Follow the verified root README workflow. Root Makefiles coordinate Python/React environments where present; Spring defaults to persistent local H2; Android needs JDK17 and an explicit SDK path. Do not use source-level credentials or mutate live Firebase.

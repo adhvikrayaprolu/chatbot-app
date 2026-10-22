@@ -2,3 +2,9 @@ Flask==3.1.2
 openai==2.26.0
 python-dotenv==1.2.1
 gunicorn==23.0.0
+pypdf==6.19.0
+langchain-ollama==1.1.0
+langgraph==1.2.12
+langfuse==4.16.0
+tokenizers==0.23.2
+fonttools==4.66.1

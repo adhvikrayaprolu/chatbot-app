@@ -1,5 +1,5 @@
 """Stateless provider boundary. Never stores browser conversation state."""
-from openai import OpenAI, APIError, APITimeoutError, RateLimitError
+from openai import APIError, APITimeoutError, OpenAI, RateLimitError
 
 SYSTEM_PROMPT = 'You are a helpful assistant. Answer clearly and accurately.'
 

@@ -6,3 +6,6 @@ instance
 notebooks
 __pycache__
 .pytest_cache
+retrieval/target
+.private
+benchmarks/private
