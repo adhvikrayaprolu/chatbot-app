@@ -188,13 +188,11 @@ def contents_table(nodes: list[dict]) -> str:
     return '\n'.join('  ' * n['depth'] + f"{n['id']} {n['title']}" for n in nodes if n['depth'] <= 1)
 
 
-@traced('okf-navigation', 'tool')
-def okf(k, owner: str, did: str, question: str, history: list) -> dict:
+def choose_sections(k, owner: str, did: str, question: str, history: list, state: dict) -> tuple[list[dict], list[dict]]:
+    """One model call over the document's table of contents; returns (chunks, chosen sections)."""
     chunks = k.chunks(owner, did)
     doc = k.document(owner, did)
-    source = k.directory / did / 'source.pdf'
-    nodes = build_okf(k.directory / did / 'okf', chunks, doc['metadata']['source_sha256'], source)
-    state: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'steps': [], 'evidence': []}
+    nodes = build_okf(k.directory / did / 'okf', chunks, doc['metadata']['source_sha256'], k.directory / did / 'source.pdf')
     context = '\n'.join(m['content'] for m in history[-2:])
     context = k.tokens.split(context, 512, 0)[0] if context else ''
     table = contents_table(nodes)
@@ -208,9 +206,22 @@ def okf(k, owner: str, did: str, question: str, history: list) -> dict:
     allowed = {n['id']: n for n in nodes if n['depth'] <= 1}
     if not isinstance(ids, list) or len(ids) > 3 or any(not isinstance(i, str) or i not in allowed for i in ids):
         raise ProviderError('Invalid OKF section selection.', 502)
-    wanted = {cid for i in ids for cid in allowed[i]['ids']}
+    sections = [allowed[i] for i in dict.fromkeys(ids)]
+    state['steps'].append('Navigated table of contents: ' + '; '.join(n['title'] for n in sections))
+    return chunks, sections
+
+
+def usage_state() -> dict[str, Any]:
+    return {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'load_seconds': 0, 'steps': [], 'evidence': []}
+
+
+@traced('okf-navigation', 'tool')
+def okf(k, owner: str, did: str, question: str, history: list) -> dict:
+    """Pure navigation: table of contents -> passage index -> passages. No vector search."""
+    state = usage_state()
+    chunks, sections = choose_sections(k, owner, did, question, history, state)
+    wanted = {cid for n in sections for cid in n['ids']}
     candidates = [c for c in chunks if c['id'] in wanted]
-    state['steps'].append('Navigated table of contents: ' + '; '.join(allowed[i]['title'] for i in ids))
     if candidates:
         # Shrink previews rather than fail when broad sections are chosen.
         for preview in (160, 100, 60):
@@ -220,13 +231,47 @@ def okf(k, owner: str, did: str, question: str, history: list) -> dict:
         else:
             candidates = candidates[:60]
             table = '\n'.join(f"{c['id']}: PDF {c['page']}; {' '.join(c['text'][:60].split())}" for c in candidates)
-        selected, usage = decision(k.models, 'Select at most five passage IDs relevant to the question. Use only listed IDs; empty ids if none are relevant.',
-                                   question + '\nPassage index:\n' + table, selection_schema([c['id'] for c in candidates]))
-        add_usage(state, usage)
-        ids = selected.get('ids')
-        allowed = {c['id']: c for c in candidates}
-        if not isinstance(ids, list) or len(ids) > 5 or any(not isinstance(i, str) or i not in allowed for i in ids):
-            raise ProviderError('Invalid OKF passage selection.', 502)
-        state['evidence'] = [allowed[i] for i in dict.fromkeys(ids)]
+        state['evidence'] = pick_passages(k, question, table, candidates, state)
         state['steps'].append(f'Opened {len(state["evidence"])} passages from {len(candidates)} in scope')
     return state
+
+
+def pick_passages(k, question: str, table: str, candidates: list[dict], state: dict) -> list[dict]:
+    selected, usage = decision(k.models, 'Select at most five passage IDs relevant to the question, most relevant first. Use only listed IDs; empty ids if none are relevant.',
+                               question + '\nPassage index:\n' + table, selection_schema([c['id'] for c in candidates]))
+    add_usage(state, usage)
+    ids = selected.get('ids')
+    allowed = {c['id']: c for c in candidates}
+    if not isinstance(ids, list) or len(ids) > 5 or any(not isinstance(i, str) or i not in allowed for i in ids):
+        raise ProviderError('Invalid passage selection.', 502)
+    return [allowed[i] for i in dict.fromkeys(ids)]
+
+
+@traced('scoped-retrieval', 'retriever')
+def scoped(k, owner: str, did: str, question: str, history: list) -> dict:
+    """Structure-aware retrieval: the model picks sections from the outline, hybrid search ranks inside them."""
+    state = usage_state()
+    _, sections = choose_sections(k, owner, did, question, history, state)
+    scope = {cid for n in sections for cid in n['ids']}
+    hits = k.search(owner, did, question, limit=50)
+    inside = [h for h in hits if h['id'] in scope]
+    # Fall back to unscoped hits so a wrong section choice degrades to plain RAG rather than nothing.
+    state['evidence'] = (inside + [h for h in hits if h['id'] not in scope])[:5]
+    state['steps'].append(f'Ranked {len(inside)} in-scope passages with hybrid search')
+    return state
+
+
+@traced('rerank-retrieval', 'retriever')
+def rerank(k, owner: str, did: str, question: str, history: list) -> dict:
+    """Wide hybrid recall, then one listwise model call keeps the five most relevant passages."""
+    state = usage_state()
+    candidates = k.search(owner, did, question, limit=20)
+    state['steps'].append(f'Retrieved {len(candidates)} candidates')
+    if candidates:
+        table = '\n'.join(f"{c['id']}: PDF {c['page']}; {c['section']}; {' '.join(c['text'][:240].split())}" for c in candidates)
+        state['evidence'] = pick_passages(k, question, table, candidates, state)
+        state['steps'].append(f'Reranked to {len(state["evidence"])} passages')
+    return state
+
+
+STRATEGIES = {'agentic': agentic, 'okf': okf, 'scoped': scoped, 'rerank': rerank}

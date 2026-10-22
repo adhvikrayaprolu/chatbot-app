@@ -1,4 +1,4 @@
-.PHONY: setup dev test check retrieval models
+.PHONY: setup dev test check retrieval models bench
 setup:
 	python3 -m venv .venv
 	.venv/bin/pip install -r requirements-dev.txt
@@ -15,7 +15,11 @@ test:
 	cargo test --locked --manifest-path retrieval/Cargo.toml
 	.venv/bin/python -m pytest -q
 check:
-	.venv/bin/ruff check app.py storage.py gpt_handler.py knowledge.py strategies.py observability.py evaluation.py evaluation_external.py tests scripts
+	.venv/bin/ruff check app.py storage.py gpt_handler.py knowledge.py strategies.py observability.py evaluation.py evaluation_external.py bench.py tests scripts
 	.venv/bin/mypy --config-file pyproject.toml
 	cargo fmt --check --manifest-path retrieval/Cargo.toml
 	cargo clippy --locked --manifest-path retrieval/Cargo.toml -- -D warnings
+bench:
+	.venv/bin/python bench.py retrieval
+	.venv/bin/python bench.py answers --split development
+	.venv/bin/python bench.py report

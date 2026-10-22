@@ -4,7 +4,7 @@ import pytest
 
 from app import create_app
 from gpt_handler import ProviderError
-from knowledge import Knowledge
+from knowledge import METHODS, Knowledge
 from storage import Conflict, NotFound, Store
 
 
@@ -140,7 +140,7 @@ def test_comparison_does_not_change_chat_and_is_owned(corpus):
     k, did = corpus
     k.answer = lambda *args, **kwargs: {'reply': 'answer', 'method': kwargs['method']}
     result = k.compare('alice', did, 'question')
-    assert set(result['results']) == {'rag', 'agentic', 'okf'}
+    assert set(result['results']) == set(METHODS)
     assert k.comparison('alice', result['id'])['question'] == 'question'
     with pytest.raises(NotFound):
         k.comparison('bob', result['id'])
@@ -274,3 +274,23 @@ def test_okf_sections_follow_pdf_outline(tmp_path):
     assert nodes['1.2 Barriers']['parent'] == nodes['1 Introduction']['id']
     assert nodes['2 Memory']['ids'] == ['p5-c0', 'p6-c0']
     assert '  ' + nodes['1.1 Threads']['id'] + ' 1.1 Threads' in contents_table(list(nodes.values()))
+
+
+def test_scoped_and_rerank_use_one_decision_and_only_supplied_ids(corpus):
+    k, did = corpus
+    prompts = []
+    def generate(messages, schema=None, citation_ids=None):
+        prompts.append(messages[-1]['content'])
+        if schema:
+            ids = ['s0'] if 'Table of contents:' in messages[-1]['content'] else ['p1-c0']
+            return {'text': __import__('json').dumps({'ids': ids}), 'input_tokens': 1, 'output_tokens': 1}
+        return {'text': 'Block barrier [p1-c0].', 'input_tokens': 1, 'output_tokens': 1}
+    k.models.generate = generate
+    for method in ('scoped', 'rerank'):
+        result = k.answer('alice', did, 'barrier', method=method)
+        assert result['model_calls'] == 2
+        assert [c['id'] for c in result['citations']] == ['p1-c0']
+    assert 'Table of contents:' in prompts[0] and 'Passage index:' in prompts[2]
+    k.models.generate = lambda *args: {'text': '{"ids":["p9-c9"]}', 'input_tokens': 1, 'output_tokens': 1}
+    with pytest.raises(ProviderError):
+        k.answer('alice', did, 'barrier', method='rerank')
