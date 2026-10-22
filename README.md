@@ -90,8 +90,9 @@ not hidden model reasoning. Imported PDFs and experiment details remain local.
 LangChain adapts Ollama; LangGraph explicitly controls query → retrieve → assess transitions.
 The agent gets at most two retrieval rounds (four decision calls plus one answer call).
 OKF is a portable Markdown knowledge format, not a model or a guarantee of better answers.
-This implementation builds lossless, source-backed concepts and linked page-range indexes,
-then navigates root → passage with at most two hops and three model calls. It uses no vector
+This implementation mirrors the PDF's own outline (chapter → section → subsection) as a
+source-backed bundle, then navigates table of contents → passage with at most two hops and
+three model calls. It uses no vector
 search. Bundles declare OKF v0.2, generated provenance and `draft` status; no human verification
 is claimed. All three methods share the same answer instructions and 3,072-token evidence
 budget. The final generator uses qwen3:4b, thinking disabled, temperature 0, 8,192 context,

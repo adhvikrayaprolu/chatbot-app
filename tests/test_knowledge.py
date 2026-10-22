@@ -123,7 +123,7 @@ def test_okf_navigation_and_invalid_path(corpus):
     k, did = corpus
     def generate(messages, schema=None, citation_ids=None):
         if schema:
-            ids = ['group-0'] if 'Source indexes:' in messages[-1]['content'] else ['p1-c0']
+            ids = ['s0'] if 'Table of contents:' in messages[-1]['content'] else ['p1-c0']
             return {'text': __import__('json').dumps({'ids': ids}), 'input_tokens': 1, 'output_tokens': 1}
         return {'text': 'Block barrier [p1-c0].', 'input_tokens': 1, 'output_tokens': 1}
     k.models.generate = generate
@@ -252,3 +252,25 @@ def test_local_adapter_requires_source_ids_or_explicit_abstention(monkeypatch):
         adapter.payload = payload
         with pytest.raises(ProviderError):
             models.generate(messages, None, ['p1-c0'])
+
+
+def test_okf_sections_follow_pdf_outline(tmp_path):
+    from pypdf import PdfWriter
+
+    from strategies import contents_table, outline_nodes
+    writer = PdfWriter()
+    for _ in range(6):
+        writer.add_blank_page(100, 100)
+    chapter = writer.add_outline_item('1 Introduction', 0)
+    writer.add_outline_item('1.1 Threads', 1, parent=chapter)
+    writer.add_outline_item('1.2 Barriers', 3, parent=chapter)
+    writer.add_outline_item('2 Memory', 4)
+    source = tmp_path / 'source.pdf'
+    with source.open('wb') as file:
+        writer.write(file)
+    chunks = [{'id': f'p{page}-c0', 'page': page, 'section': 'x'} for page in range(1, 7)]
+    nodes = {n['title']: n for n in outline_nodes(source, chunks)}
+    assert (nodes['1.2 Barriers']['start'], nodes['1.2 Barriers']['end']) == (4, 5)
+    assert nodes['1.2 Barriers']['parent'] == nodes['1 Introduction']['id']
+    assert nodes['2 Memory']['ids'] == ['p5-c0', 'p6-c0']
+    assert '  ' + nodes['1.1 Threads']['id'] + ' 1.1 Threads' in contents_table(list(nodes.values()))
