@@ -53,7 +53,7 @@ Signed browser cookies identify owners; every document, conversation and experim
 | --- | --- | --- |
 | Standard RAG | One hybrid lexical/dense retrieval, selecting five passages | One answer call |
 | Agentic RAG | Plan a query, retrieve, assess support, retry if needed | Two retrieval rounds; at most five calls |
-| OKF navigation | Select chapter/page-range indexes, then linked source passages; no vector search | Two navigation hops; at most three calls |
+| OKF navigation | Walk the document outline (chapter → section), then pick passages; no vector search | Two navigation hops; at most three calls |
 
 LangChain supplies the Ollama model adapters and structured interfaces. LangGraph supplies explicit state and bounded transitions for the agent. Neither framework replaces the Rust engine or owns database storage. OKF v0.2 is a linked Markdown format, not another model: generated bundles preserve source content, provenance and `draft` status, without claiming human verification.
 
