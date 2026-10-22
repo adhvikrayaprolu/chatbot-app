@@ -15,7 +15,7 @@ test:
 	cargo test --locked --manifest-path retrieval/Cargo.toml
 	.venv/bin/python -m pytest -q
 check:
-	.venv/bin/ruff check app.py storage.py gpt_handler.py knowledge.py tests scripts
+	.venv/bin/ruff check app.py storage.py gpt_handler.py knowledge.py strategies.py observability.py tests scripts
 	.venv/bin/mypy --config-file pyproject.toml
 	cargo fmt --check --manifest-path retrieval/Cargo.toml
 	cargo clippy --locked --manifest-path retrieval/Cargo.toml -- -D warnings

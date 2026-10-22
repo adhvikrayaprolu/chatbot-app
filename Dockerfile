@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd --create-home appuser
 COPY --from=retrieval /build/target/release/document-retrieval /usr/local/bin/document-retrieval
 ENV RETRIEVAL_BIN=/usr/local/bin/document-retrieval
-COPY app.py gpt_handler.py storage.py knowledge.py ./
+COPY app.py gpt_handler.py storage.py knowledge.py strategies.py observability.py ./
 COPY templates/ templates/
 COPY static/ static/
 COPY fixtures/ fixtures/
