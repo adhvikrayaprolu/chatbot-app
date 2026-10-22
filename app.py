@@ -11,7 +11,7 @@ from flask import Flask, jsonify, render_template, request, session
 from werkzeug.exceptions import HTTPException
 
 from gpt_handler import SYSTEM_PROMPT, DemoProvider, OpenAIProvider, ProviderError
-from knowledge import Knowledge
+from knowledge import METHODS, Knowledge
 from storage import Conflict, NotFound, Store
 
 
@@ -223,7 +223,7 @@ def create_app(config=None, provider=None, knowledge=None):
         if data.get('document_id'):
             did = text(data, 'document_id', 64)
             method = data.get('method', 'rag')
-            if method not in ('rag', 'agentic', 'okf'):
+            if method not in METHODS:
                 from werkzeug.exceptions import BadRequest
                 raise BadRequest('Unknown answering method.')
             grounded = corpus.answer(session['owner'], did, message, conversation['messages'], method)
