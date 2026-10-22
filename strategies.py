@@ -107,23 +107,68 @@ def agentic(k, owner: str, did: str, question: str, history: list) -> dict:
     return result
 
 
-def build_okf(path: Path, chunks: list[dict], source_hash: str) -> list[dict]:
-    """Lossless private source-backed concepts; no benchmark answers or LLM summaries."""
+def outline_nodes(source: Path | None, chunks: list[dict]) -> list[dict]:
+    """Section nodes with inclusive PDF page spans, in reading order.
+
+    PDF bookmarks give the real chapter/section hierarchy. Sources without bookmarks fall back
+    to runs of the section label recorded at ingestion, then to fixed page windows.
+    """
+    last_page = max(c['page'] for c in chunks)
+    entries: list[tuple[int, int, str]] = []
+    if source is not None and source.suffix == '.pdf' and source.exists():
+        from pypdf import PdfReader
+        reader = PdfReader(source)
+
+        def walk(items, depth):
+            for item in items:
+                if isinstance(item, list):
+                    walk(item, depth + 1)
+                elif depth <= 2:
+                    page = reader.get_destination_page_number(item)
+                    if page is not None:
+                        entries.append((depth, page + 1, str(item.title).strip()[:120]))
+        walk(reader.outline, 0)
+    if not entries:
+        runs: list[tuple[int, int, str]] = []
+        for chunk in chunks:
+            if not runs or runs[-1][2] != chunk['section']:
+                runs.append((0, chunk['page'], chunk['section']))
+        entries = runs if len(runs) > 1 else [
+            (0, page, f'PDF pages {page}–{min(page + 7, last_page)}') for page in range(1, last_page + 1, 8)]
+    nodes: list[dict] = []
+    parents: dict[int, str] = {}
+    for i, (depth, page, title) in enumerate(entries):
+        # A section runs until the next entry at the same or shallower depth (sharing that page).
+        end = next((p for d, p, _ in entries[i + 1:] if d <= depth), last_page)
+        node: dict[str, Any] = {'id': f's{i}', 'title': title, 'depth': depth, 'start': page,
+                                'end': max(page, end), 'parent': parents.get(depth - 1)}
+        parents[depth] = f's{i}'
+        nodes.append(node)
+    for node in nodes:
+        node['ids'] = [c['id'] for c in chunks if node['start'] <= c['page'] <= node['end']]
+    return [n for n in nodes if n['ids']]
+
+
+def build_okf(path: Path, chunks: list[dict], source_hash: str, source: Path | None = None) -> list[dict]:
+    """Lossless private source-backed OKF bundle mirroring the document's own outline."""
     path.mkdir(exist_ok=True)
     manifest = path / 'manifest.json'
     if manifest.exists():
         cached = json.loads(manifest.read_text())
-        if cached.get('source_hash') == source_hash and cached.get('version') == 3:
-            return cached['groups']
+        if cached.get('source_hash') == source_hash and cached.get('version') == 4:
+            return cached['nodes']
+    for stale in path.glob('*.md'):
+        stale.unlink()
     imported_at = datetime.now(timezone.utc).isoformat()
-    groups = []
-    for start in range(0, len(chunks), 32):
-        batch = chunks[start:start + 32]
-        group = {'id': f'group-{start // 32}', 'title': f"PDF pages {batch[0]['page']}–{batch[-1]['page']}: {batch[0]['section']}",
-                 'ids': [c['id'] for c in batch], 'description': ' '.join(dict.fromkeys(c['section'] for c in batch))[:120]}
-        groups.append(group)
-        index = '\n'.join(f"- [{c['section']} · PDF {c['page']} · {c['id']}]({c['id']}.md)" for c in batch)
-        (path / f"{group['id']}.md").write_text('---\ntype: Source index\n---\n' + index + '\n')
+    nodes = outline_nodes(source, chunks)
+    by_id = {c['id']: c for c in chunks}
+    for node in nodes:
+        children = [n for n in nodes if n['parent'] == node['id']]
+        lines = [f"- [{n['title']} · PDF {n['start']}–{n['end']}]({n['id']}.md)" for n in children]
+        if not children:
+            lines = [f"- [{by_id[i]['section']} · PDF {by_id[i]['page']} · {i}]({i}.md)" for i in node['ids']]
+        meta = {'type': 'Section', 'title': node['title'], 'pdf_pages': [node['start'], node['end']]}
+        (path / f"{node['id']}.md").write_text('---\n' + yaml.safe_dump(meta, sort_keys=False) + '---\n' + '\n'.join(lines) + '\n')
     for i, chunk in enumerate(chunks):
         meta = {'type': 'Source passage', 'title': chunk['section'], 'sources': [{'id': 'textbook', 'resource': f'../source.pdf#page={chunk["page"]}', 'sha256': source_hash}],
                 'status': 'draft', 'generated': {'by': 'deterministic:pdf-ingestion', 'at': imported_at}, 'pdf_page': chunk['page'], 'printed_page': chunk['printed_page']}
@@ -131,36 +176,50 @@ def build_okf(path: Path, chunks: list[dict], source_hash: str) -> list[dict]:
         for adjacent in chunks[max(0, i - 1):i] + chunks[i + 1:i + 2]:
             links.append(f"[{adjacent['id']}]({adjacent['id']}.md)")
         (path / f"{chunk['id']}.md").write_text('---\n' + yaml.safe_dump(meta, sort_keys=False) + '---\n' + chunk['text'] + '\n\nSource: [^textbook]\n\n[^textbook]: User-supplied source, PDF page ' + str(chunk['page']) + '\n\nAdjacent passages: ' + ' '.join(links) + '\n')
-    (path / 'index.md').write_text('---\nokf_version: "0.2"\n---\n' + '\n'.join(f"- [{g['title']}]({g['id']}.md)" for g in groups) + '\n')
-    (path / 'log.md').write_text('# ' + imported_at + '\n\nDeterministic source-backed import; not human-verified.\n')
-    manifest.write_text(json.dumps({'version': 3, 'source_hash': source_hash, 'groups': groups}))
-    return groups
+    (path / 'index.md').write_text('---\nokf_version: "0.2"\n---\n' + '\n'.join(
+        f"- [{n['title']} · PDF {n['start']}–{n['end']}]({n['id']}.md)" for n in nodes if n['parent'] is None) + '\n')
+    (path / 'log.md').write_text('# ' + imported_at + '\n\nDeterministic source-backed import from the document outline; not human-verified.\n')
+    manifest.write_text(json.dumps({'version': 4, 'source_hash': source_hash, 'nodes': nodes}))
+    return nodes
+
+
+def contents_table(nodes: list[dict]) -> str:
+    """Compact two-level table of contents; deeper subsections are reached through their parent."""
+    return '\n'.join('  ' * n['depth'] + f"{n['id']} {n['title']}" for n in nodes if n['depth'] <= 1)
 
 
 @traced('okf-navigation', 'tool')
 def okf(k, owner: str, did: str, question: str, history: list) -> dict:
     chunks = k.chunks(owner, did)
     doc = k.document(owner, did)
-    groups = build_okf(k.directory / did / 'okf', chunks, doc['metadata']['source_sha256'])
+    source = k.directory / did / 'source.pdf'
+    nodes = build_okf(k.directory / did / 'okf', chunks, doc['metadata']['source_sha256'], source)
     state: dict[str, Any] = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'steps': [], 'evidence': []}
     context = '\n'.join(m['content'] for m in history[-2:])
     context = k.tokens.split(context, 512, 0)[0] if context else ''
-    table = '\n'.join(f"{g['id']}: {g['title']}; {g['description']}" for g in groups)
+    table = contents_table(nodes)
     if k.tokens.count(table) > 4096:
-        raise ProviderError('Document index exceeds navigation context. Split the document into smaller imports.', 422)
-    selected, usage = decision(k.models, 'Select one or two source indexes most likely to contain the answer. Titles describe broad page ranges, not every concept. For a question in the document domain, choose the best available indexes even if titles are generic. Choose at least one index; uncertainty is resolved by inspecting its passages.',
-                               question + '\nRecent conversation: ' + context + '\nSource indexes:\n' + table, selection_schema([g['id'] for g in groups], minimum=1, maximum=2))
+        raise ProviderError('Document outline exceeds navigation context. Split the document into smaller imports.', 422)
+    selected, usage = decision(k.models, 'Select up to three sections from the table of contents most likely to contain the answer. Prefer the most specific section; choose a chapter only when no section fits. Choose at least one.',
+                               question + '\nRecent conversation: ' + context + '\nTable of contents:\n' + table,
+                               selection_schema([n['id'] for n in nodes if n['depth'] <= 1], minimum=1, maximum=3))
     add_usage(state, usage)
     ids = selected.get('ids')
-    allowed = {g['id']: g for g in groups}
-    if not isinstance(ids, list) or len(ids) > 2 or any(not isinstance(i, str) or i not in allowed for i in ids):
-        raise ProviderError('Invalid OKF index selection.', 502)
-    candidates = [c for c in chunks if any(c['id'] in allowed[i]['ids'] for i in ids)]
-    state['steps'].append('Navigated OKF root index')
+    allowed = {n['id']: n for n in nodes if n['depth'] <= 1}
+    if not isinstance(ids, list) or len(ids) > 3 or any(not isinstance(i, str) or i not in allowed for i in ids):
+        raise ProviderError('Invalid OKF section selection.', 502)
+    wanted = {cid for i in ids for cid in allowed[i]['ids']}
+    candidates = [c for c in chunks if c['id'] in wanted]
+    state['steps'].append('Navigated table of contents: ' + '; '.join(allowed[i]['title'] for i in ids))
     if candidates:
-        table = '\n'.join(f"{c['id']}: PDF {c['page']}; {c['section']}; {c['text'][:100]}" for c in candidates)
-        if k.tokens.count(table) > 4096:
-            raise ProviderError('Passage index exceeds navigation context.', 422)
+        # Shrink previews rather than fail when broad sections are chosen.
+        for preview in (160, 100, 60):
+            table = '\n'.join(f"{c['id']}: PDF {c['page']}; {c['section']}; {' '.join(c['text'][:preview].split())}" for c in candidates)
+            if k.tokens.count(table) <= 4096:
+                break
+        else:
+            candidates = candidates[:60]
+            table = '\n'.join(f"{c['id']}: PDF {c['page']}; {' '.join(c['text'][:60].split())}" for c in candidates)
         selected, usage = decision(k.models, 'Select at most five passage IDs relevant to the question. Use only listed IDs; empty ids if none are relevant.',
                                    question + '\nPassage index:\n' + table, selection_schema([c['id'] for c in candidates]))
         add_usage(state, usage)
@@ -169,5 +228,5 @@ def okf(k, owner: str, did: str, question: str, history: list) -> dict:
         if not isinstance(ids, list) or len(ids) > 5 or any(not isinstance(i, str) or i not in allowed for i in ids):
             raise ProviderError('Invalid OKF passage selection.', 502)
         state['evidence'] = [allowed[i] for i in dict.fromkeys(ids)]
-        state['steps'].append('Opened source-backed OKF concepts')
+        state['steps'].append(f'Opened {len(state["evidence"])} passages from {len(candidates)} in scope')
     return state
