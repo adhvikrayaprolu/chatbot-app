@@ -2,13 +2,13 @@
 Maintain independent conversations with a language-model chatbot.
 
 # Architecture
-app.py: Flask routes; gpt_handler.py: OpenAI boundary and currently process-global history; templates/index.html: vanilla UI and browser localStorage. No server persistence in published main.
+app.py: Flask routes and readiness; gpt_handler.py: stateless demo/OpenAI boundary; storage.py: owner-scoped SQLite persistence; templates/ and static/: vanilla browser UI.
 
 # Local Development
 Follow the verified root README workflow. Root Makefiles coordinate Python/React environments where present; Spring defaults to persistent local H2; Android needs JDK17 and an explicit SDK path. Do not use source-level credentials or mutate live Firebase.
 
 # Validation
-Canonical setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
+Recommended startup: copy `.env.example` to `.env`, then `docker compose up --build --wait --wait-timeout 90`. Native setup/run/check commands: `make setup; make dev; make test` (run as separate commands). See README for prerequisites. Behavioral tests are mandatory and CI runs them; do not reduce checks to syntax or zero-test builds. Provider tests use fakes or demo-gatherlink emulators.
 
 # Frontend Rules
 Keep the native stack (JSP, vanilla HTML or Android Java/XML). Preserve keyboard/accessibility, loading/error/empty states; do not migrate to React.
