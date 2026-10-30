@@ -28,7 +28,7 @@ Open http://127.0.0.1:5000. Startup waits for the HTTP/SQLite readiness check; p
 
 `docker compose down` stops the app while retaining history and the session key in the `chat-data` volume. **`docker compose down --volumes` deletes that project's conversations and browser ownership key.** Source changes require rerunning the startup command to rebuild.
 
-For native development instead, use Python 3.12/3.13 and Make: run `make setup` once, then `make dev`. Data and the session key live under ignored `instance/`. Dependencies pin direct versions; transitive versions are resolved by pip.
+For native development instead, use Python 3.12/3.13 and Make: run `make setup` once, then `make dev`. Data and the session key live under ignored `instance/`. Native setup, Docker and CI share hash-checked transitive dependency locks. Maintainers refresh them with `make lock`; see [dependency maintenance](docs/dependencies.md) for update commands and platform limits.
 
 ## Validation / Tests
 ```sh
