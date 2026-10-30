@@ -8,14 +8,23 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: requirements*.txt
-      - run: pip install -r requirements-dev.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
+      - run: pip check
+      - name: Check generated locks match their inputs
+        if: matrix.python == '3.12'
+        run: |
+          make lock
+          git diff --exit-code -- requirements.txt requirements-dev.txt
       - run: python -m pytest -q
       - run: python -m compileall -q app.py gpt_handler.py storage.py
   docker:
